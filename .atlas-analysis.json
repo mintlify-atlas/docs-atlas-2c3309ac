@@ -1,0 +1,107 @@
+{
+  "projectType": "saas",
+  "projectName": "Agility",
+  "projectDescription": "Workflow automation platform for creating AI agent workflows with drag-and-drop interface",
+  "theme": "palm",
+  "primaryColor": "#3B82F6",
+  "lightColor": "#60A5FA",
+  "darkColor": "#1E40AF",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "setup"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workflows",
+              "concepts/agents",
+              "concepts/connections"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "agents/overview",
+              "agents/text-generator",
+              "agents/gmail-reader",
+              "agents/gmail-sender",
+              "agents/discord-messenger",
+              "agents/github-reader"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-workflows",
+              "guides/connecting-agents",
+              "guides/testing-workflows",
+              "guides/common-patterns"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/overview",
+              "deployment/environment-variables",
+              "deployment/supabase-setup"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Edge Functions",
+            "pages": [
+              "api/overview",
+              "api/run-workflow",
+              "api/generate-text",
+              "api/read-gmail",
+              "api/send-gmail",
+              "api/send-discord",
+              "api/read-github"
+            ]
+          },
+          {
+            "group": "Database",
+            "pages": [
+              "api/database/workflows",
+              "api/database/agent-configs",
+              "api/database/connections"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Visual workflow builder with drag-and-drop interface",
+    "AI-powered workflow generation from text prompts",
+    "Pre-built agents for Gmail, Discord, GitHub, and text generation",
+    "Real-time workflow execution and monitoring",
+    "Secure credential management with Supabase",
+    "Seamless service integrations"
+  ],
+  "publicApiSurface": [
+    "POST /functions/v1/run-workflow - Execute a workflow",
+    "POST /functions/v1/generate-workflow - Generate workflow from prompt",
+    "POST /functions/v1/generate-text - Text generation with AI",
+    "POST /functions/v1/read-gmail - Read Gmail messages",
+    "POST /functions/v1/send-gmail - Send Gmail messages",
+    "POST /functions/v1/send-discord - Send Discord messages",
+    "POST /functions/v1/read-github - Read GitHub repository changes",
+    "POST /functions/v1/manage-workflows - Manage user workflows",
+    "POST /functions/v1/manage-agent-configs - Manage agent configurations",
+    "POST /functions/v1/manage-connections - Manage workflow connections"
+  ]
+}
