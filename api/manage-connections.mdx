@@ -1,0 +1,321 @@
+---
+title: 'Manage Connections'
+description: 'GET/POST/DELETE /functions/v1/manage-connections - Manage workflow connections between agents'
+---
+
+## Overview
+
+The Manage Connections endpoint provides CRUD operations for connections between workflow elements. Connections define the data flow between agents in a workflow.
+
+## Endpoint
+
+```
+https://<your-project>.supabase.co/functions/v1/manage-connections
+```
+
+## Authentication
+
+Requires a valid Supabase JWT token:
+
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+## Operations
+
+### Get All Connections
+
+Retrieves all connections for the authenticated user.
+
+#### Method
+
+```
+GET /functions/v1/manage-connections
+```
+
+#### Example Request
+
+```bash
+curl -X GET https://your-project.supabase.co/functions/v1/manage-connections \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### Success Response (200)
+
+<ResponseField name="connections" type="array">
+  Array of connection objects
+  
+  <Expandable title="connection properties">
+    <ResponseField name="id" type="string">
+      Connection database ID (UUID)
+    </ResponseField>
+    
+    <ResponseField name="user_id" type="string">
+      User ID who owns the connection
+    </ResponseField>
+    
+    <ResponseField name="workflow_id" type="string">
+      Workflow ID this connection belongs to
+    </ResponseField>
+    
+    <ResponseField name="source_element_id" type="string">
+      Element ID of the source agent
+    </ResponseField>
+    
+    <ResponseField name="target_element_id" type="string">
+      Element ID of the target agent
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      ISO timestamp of creation
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example Response
+
+```json
+{
+  "connections": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "user_id": "123e4567-e89b-12d3-a456-426614174000",
+      "workflow_id": "workflow-abc123",
+      "source_element_id": "element-1",
+      "target_element_id": "element-2",
+      "created_at": "2024-03-15T10:30:00.000Z"
+    }
+  ]
+}
+```
+
+### Create Connection
+
+Creates a new connection between two workflow elements.
+
+#### Method
+
+```
+POST /functions/v1/manage-connections
+```
+
+#### Request Body
+
+<ParamField path="workflowId" type="string" required>
+  ID of the workflow containing these elements
+</ParamField>
+
+<ParamField path="sourceElementId" type="string" required>
+  Element ID of the source agent (must be a valid UUID)
+</ParamField>
+
+<ParamField path="targetElementId" type="string" required>
+  Element ID of the target agent (must be a valid UUID)
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/manage-connections \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "workflowId": "workflow-abc123",
+    "sourceElementId": "550e8400-e29b-41d4-a716-446655440001",
+    "targetElementId": "550e8400-e29b-41d4-a716-446655440002"
+  }'
+```
+
+#### Success Response (201)
+
+<ResponseField name="success" type="boolean">
+  Always `true` for successful creation
+</ResponseField>
+
+<ResponseField name="connection" type="object">
+  The created connection record
+</ResponseField>
+
+```json
+{
+  "success": true,
+  "connection": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "workflow_id": "workflow-abc123",
+    "source_element_id": "550e8400-e29b-41d4-a716-446655440001",
+    "target_element_id": "550e8400-e29b-41d4-a716-446655440002",
+    "created_at": "2024-03-15T10:30:00.000Z"
+  }
+}
+```
+
+### Delete Connection
+
+Removes a connection between workflow elements.
+
+#### Method
+
+```
+DELETE /functions/v1/manage-connections
+```
+
+#### Request Body
+
+<ParamField path="connectionId" type="string" required>
+  UUID of the connection to delete
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X DELETE https://your-project.supabase.co/functions/v1/manage-connections \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "connectionId": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+#### Success Response (200)
+
+<ResponseField name="success" type="boolean">
+  Always `true` for successful deletion
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+```json
+{
+  "success": true,
+  "message": "Connection deleted successfully"
+}
+```
+
+## Validation Rules
+
+### UUID Validation
+
+Both `sourceElementId` and `targetElementId` must be valid UUIDs:
+
+```regex
+/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+```
+
+### Self-Connection Prevention
+
+A connection cannot have the same source and target:
+
+```json
+{
+  "error": "Source and target element IDs cannot be the same"
+}
+```
+
+### Duplicate Prevention
+
+The database enforces unique constraint on `(workflow_id, source_element_id, target_element_id)`, preventing duplicate connections.
+
+## Error Responses
+
+### 400 Bad Request
+
+**Missing parameters:**
+```json
+{
+  "error": "Workflow ID, source element ID, and target element ID are required"
+}
+```
+
+**Invalid UUID:**
+```json
+{
+  "error": "Source and target element IDs must be valid UUIDs"
+}
+```
+
+**Self-connection:**
+```json
+{
+  "error": "Source and target element IDs cannot be the same"
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Authorization header is required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Not authenticated"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "error": "Connection not found"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Failed to create connection"
+}
+```
+
+## Database Schema
+
+Connections are stored in the `agent_connections` table:
+
+```sql
+CREATE TABLE agent_connections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  workflow_id TEXT NOT NULL,
+  source_element_id UUID NOT NULL,
+  target_element_id UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(workflow_id, source_element_id, target_element_id),
+  CHECK (source_element_id != target_element_id)
+);
+```
+
+## Usage Pattern
+
+1. **Canvas Interaction**: User drags from source agent's output port to target agent's input port
+2. **Create Connection**: UI calls POST endpoint with element IDs
+3. **Visual Update**: Connection line appears on canvas
+4. **Delete Connection**: User clicks connection and presses delete, UI calls DELETE endpoint
+5. **Load Connections**: On workflow load, UI calls GET endpoint to retrieve all connections
+
+## Data Flow
+
+Connections enable data flow between agents:
+- Output from source agent is available to target agent
+- Target agent can use placeholders like `{{input.text}}` to access source data
+- Multiple connections create complex data pipelines
+
+## Row Level Security
+
+The `agent_connections` table uses RLS to ensure:
+- Users can only access their own connections
+- Connections are automatically filtered by `user_id`
+- Cross-user access is prevented
+
+## See Also
+
+- [Connections Database Schema](/api/database/connections) - Detailed database structure
+- [Connections Concept](/concepts/connections) - How connections work in workflows
+- [Run Workflow](/api/run-workflow) - How connections are used during execution

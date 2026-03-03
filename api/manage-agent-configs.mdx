@@ -1,0 +1,270 @@
+---
+title: 'Manage Agent Configs'
+description: 'POST /functions/v1/manage-agent-configs - Save and retrieve agent configurations'
+---
+
+## Overview
+
+The Manage Agent Configs endpoint handles CRUD operations for agent configurations. Each agent in a workflow needs configuration (API keys, credentials, settings) which is stored securely per element.
+
+## Endpoint
+
+```
+POST https://<your-project>.supabase.co/functions/v1/manage-agent-configs
+```
+
+## Authentication
+
+Requires a valid Supabase JWT token:
+
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+## Operations
+
+### Save Configuration
+
+Saves or updates configuration for a specific agent element.
+
+#### Request Body
+
+<ParamField path="action" type="string" required>
+  Must be `"save-config"` for save operations
+</ParamField>
+
+<ParamField path="elementId" type="string" required>
+  Unique identifier for the workflow element being configured
+</ParamField>
+
+<ParamField path="agentType" type="string" required>
+  Type of agent being configured. Must be one of:
+  - `text_generator`
+  - `gmail_reader`
+  - `gmail_sender`
+  - `discord_messenger`
+  - `github_reader`
+</ParamField>
+
+<ParamField path="config" type="object" required>
+  Agent-specific configuration object. Structure varies by agent type.
+</ParamField>
+
+#### Example Request (Text Generator)
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/manage-agent-configs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "action": "save-config",
+    "elementId": "element-abc123",
+    "agentType": "text_generator",
+    "config": {
+      "apiKey": "sk-...",
+      "model": "gpt-4",
+      "prompt": "Summarize this email: {{input.emailBody}}",
+      "provider": "openai"
+    }
+  }'
+```
+
+#### Success Response (200)
+
+<ResponseField name="success" type="boolean">
+  Always `true` for successful saves
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+```json
+{
+  "success": true,
+  "message": "Configuration saved successfully"
+}
+```
+
+### Get Configuration
+
+Retrieves saved configuration for a specific agent element.
+
+#### Request Body
+
+<ParamField path="action" type="string" required>
+  Must be `"get-config"` for retrieval operations
+</ParamField>
+
+<ParamField path="elementId" type="string" required>
+  Unique identifier for the workflow element
+</ParamField>
+
+<ParamField path="agentType" type="string" required>
+  Type of agent (text_generator, gmail_reader, etc.)
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/manage-agent-configs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "action": "get-config",
+    "elementId": "element-abc123",
+    "agentType": "text_generator"
+  }'
+```
+
+#### Success Response (200)
+
+<ResponseField name="config" type="object | null">
+  The saved configuration object, or `null` if not configured
+</ResponseField>
+
+```json
+{
+  "config": {
+    "apiKey": "sk-...",
+    "model": "gpt-4",
+    "prompt": "Summarize this email: {{input.emailBody}}",
+    "provider": "openai"
+  }
+}
+```
+
+## Configuration by Agent Type
+
+### Text Generator
+
+```typescript
+{
+  apiKey: string,      // OpenAI or Anthropic API key
+  model: string,       // Model name (gpt-4, claude-3-5-sonnet, etc.)
+  prompt: string,      // Text generation prompt (supports placeholders)
+  provider: string     // "openai" or "anthropic"
+}
+```
+
+### Gmail Reader
+
+```typescript
+{
+  fromEmail: string,   // Filter by sender email
+  maxResults: number,  // Maximum emails to fetch
+  onlyUnread: boolean  // Only fetch unread emails
+}
+```
+
+### Gmail Sender
+
+```typescript
+{
+  to: string,          // Recipient email (supports placeholders)
+  subject: string,     // Email subject (supports placeholders)
+  body: string         // Email body (supports placeholders)
+}
+```
+
+### Discord Messenger
+
+```typescript
+{
+  webhookUrl: string,  // Discord webhook URL
+  username: string,    // Optional custom username
+  avatarUrl: string,   // Optional custom avatar URL
+  content: string      // Message content (supports placeholders)
+}
+```
+
+### GitHub Reader
+
+```typescript
+{
+  accessToken: string, // GitHub Personal Access Token
+  repository: string,  // Repository in "owner/repo" format
+  branch: string       // Branch to monitor (default: "main")
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+```json
+{
+  "error": "Element ID and agent type are required"
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Authorization header is required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Not authenticated"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Database error message"
+}
+```
+
+## Database Schema
+
+Configurations are stored in the `agent_configs` table:
+
+```sql
+CREATE TABLE agent_configs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  element_id TEXT NOT NULL,
+  agent_type TEXT NOT NULL,
+  config JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, element_id)
+);
+```
+
+<Note>
+  Configurations are unique per user and element. Saving a config for the same `elementId` will update the existing configuration.
+</Note>
+
+## Security
+
+<Warning>
+  **Credential Storage**: API keys and OAuth tokens in config are stored as-is in the database. Consider using Supabase Vault or encryption for production deployments.
+</Warning>
+
+## Usage Pattern
+
+1. **Configure Agent**: User fills in configuration form in UI
+2. **Save Config**: Call with `action: "save-config"` and config data
+3. **Load on Edit**: Call with `action: "get-config"` when user reopens config panel
+4. **Execute Workflow**: Config is automatically loaded by workflow execution based on `elementId`
+
+## Row Level Security
+
+The `agent_configs` table uses RLS to ensure:
+- Users can only access their own configurations
+- Configs are automatically filtered by `user_id`
+- Cross-user access is prevented
+
+## See Also
+
+- [Agent Configs Database Schema](/api/database/agent-configs) - Detailed database structure
+- [Run Workflow](/api/run-workflow) - How configs are used during execution
+- [Agents Overview](/agents/overview) - Available agent types and their requirements

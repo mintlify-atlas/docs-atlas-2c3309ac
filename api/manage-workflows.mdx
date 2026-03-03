@@ -1,0 +1,267 @@
+---
+title: 'Manage Workflows'
+description: 'POST /functions/v1/manage-workflows - Save and load user workflows'
+---
+
+## Overview
+
+The Manage Workflows endpoint provides operations for saving and loading workflow configurations. Each user can have one active workflow stored in the database.
+
+## Endpoint
+
+```
+POST https://<your-project>.supabase.co/functions/v1/manage-workflows
+```
+
+## Authentication
+
+Requires a valid Supabase JWT token:
+
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+## Operations
+
+### Save Workflow
+
+Saves or updates the user's workflow. Creates a new workflow if none exists, otherwise updates the existing one.
+
+#### Request Body
+
+<ParamField path="action" type="string" required>
+  Must be `"save"` for save operations
+</ParamField>
+
+<ParamField path="workflowData" type="object" required>
+  The complete workflow structure including elements and connections
+  
+  <Expandable title="workflowData structure">
+    <ParamField path="elements" type="array" required>
+      Array of workflow elements (agents)
+    </ParamField>
+    
+    <ParamField path="connections" type="array" required>
+      Array of connections between elements
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="workflowName" type="string">
+  Optional workflow name (currently defaults to "My Workflow")
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/manage-workflows \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "action": "save",
+    "workflowData": {
+      "elements": [
+        {
+          "id": "element-1",
+          "type": "agent",
+          "agentId": "1",
+          "position": { "x": 200, "y": 300 },
+          "data": {
+            "name": "Text Generator",
+            "description": "Generates text based on prompts",
+            "color": "#f0f9ff"
+          }
+        }
+      ],
+      "connections": []
+    }
+  }'
+```
+
+#### Success Response (200)
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="workflow" type="object">
+  The saved workflow record including database metadata
+  
+  <Expandable title="workflow properties">
+    <ResponseField name="id" type="string">
+      Workflow database ID (UUID)
+    </ResponseField>
+    
+    <ResponseField name="user_id" type="string">
+      User ID who owns the workflow
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Workflow name ("My Workflow")
+    </ResponseField>
+    
+    <ResponseField name="data" type="object">
+      The workflow data (elements and connections)
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      ISO timestamp of creation
+    </ResponseField>
+    
+    <ResponseField name="updated_at" type="string">
+      ISO timestamp of last update
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example Response
+
+```json
+{
+  "message": "Workflow saved successfully",
+  "workflow": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "My Workflow",
+    "data": {
+      "elements": [...],
+      "connections": [...]
+    },
+    "created_at": "2024-03-15T10:30:00.000Z",
+    "updated_at": "2024-03-15T10:30:00.000Z"
+  }
+}
+```
+
+### Load Workflow
+
+Retrieves the user's saved workflow from the database.
+
+#### Request Body
+
+<ParamField path="action" type="string" required>
+  Must be `"load"` for load operations
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/manage-workflows \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "action": "load"
+  }'
+```
+
+#### Success Response (200)
+
+<ResponseField name="success" type="boolean">
+  Always `true` for successful requests
+</ResponseField>
+
+<ResponseField name="workflow" type="object | null">
+  The user's workflow record, or `null` if no workflow exists
+</ResponseField>
+
+#### Example Response
+
+```json
+{
+  "success": true,
+  "workflow": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "My Workflow",
+    "data": {
+      "elements": [...],
+      "connections": [...]
+    },
+    "created_at": "2024-03-15T10:30:00.000Z",
+    "updated_at": "2024-03-15T10:30:00.000Z"
+  }
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+```json
+{
+  "error": "Workflow data is required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Invalid action"
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Authorization header is required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Not authenticated"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Database error message"
+}
+```
+
+## Database Schema
+
+Workflows are stored in the `user_workflows` table:
+
+```sql
+CREATE TABLE user_workflows (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  name TEXT NOT NULL DEFAULT 'My Workflow',
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id)
+);
+```
+
+<Note>
+  Each user can have **only one workflow** (enforced by `UNIQUE(user_id)` constraint). Saving a new workflow updates the existing one.
+</Note>
+
+## Usage Pattern
+
+Typical workflow management flow:
+
+1. **On App Load**: Call with `action: "load"` to retrieve saved workflow
+2. **Auto-Save**: Periodically call with `action: "save"` during editing
+3. **Manual Save**: Call with `action: "save"` when user clicks save button
+
+## Row Level Security
+
+The `user_workflows` table uses RLS to ensure:
+- Users can only read their own workflows
+- Users can only update/delete their own workflows
+- Workflows are automatically filtered by `user_id`
+
+## See Also
+
+- [Workflows Database Schema](/api/database/workflows) - Detailed database structure
+- [Run Workflow](/api/run-workflow) - Execute saved workflows
+- [Generate Workflow](/api/generate-workflow) - AI-powered workflow creation

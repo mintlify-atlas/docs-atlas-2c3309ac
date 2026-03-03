@@ -1,0 +1,263 @@
+---
+title: 'Generate Workflow'
+description: 'POST /functions/v1/generate-workflow - AI-powered workflow generation from natural language descriptions'
+---
+
+## Overview
+
+The Generate Workflow endpoint uses GPT-4o to automatically create complete workflows from natural language descriptions. This is one of Agility's most powerful features, allowing users to describe their automation needs in plain English and receive a fully structured workflow.
+
+## Endpoint
+
+```
+POST https://<your-project>.supabase.co/functions/v1/generate-workflow
+```
+
+## Authentication
+
+Requires a valid Supabase JWT token in the Authorization header:
+
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+## Request
+
+### Request Body
+
+<ParamField path="prompt" type="string" required>
+  Natural language description of the desired workflow. Describe what you want to automate, including the services and actions involved.
+  
+  **Examples:**
+  - "Read emails from Gmail, summarize them with AI, and send summaries to Discord"
+  - "Monitor GitHub commits and generate release notes using GPT-4"
+  - "Automatically respond to support emails with AI-generated responses"
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/generate-workflow \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "prompt": "Read emails from my Gmail, generate a summary using GPT-4, and send the summary to Discord"
+  }'
+```
+
+## Response
+
+### Success Response (200)
+
+<ResponseField name="workflow" type="object" required>
+  The generated workflow structure
+  
+  <Expandable title="workflow properties">
+    <ResponseField name="elements" type="array" required>
+      Array of workflow elements (agents) positioned in a linear flow
+      
+      <Expandable title="element properties">
+        <ResponseField name="id" type="string">
+          Unique identifier for the element (auto-generated)
+        </ResponseField>
+        
+        <ResponseField name="type" type="string">
+          Element type (always "agent")
+        </ResponseField>
+        
+        <ResponseField name="agentId" type="string">
+          ID of the agent type (1-5 for the 5 available agents)
+        </ResponseField>
+        
+        <ResponseField name="position" type="object">
+          Canvas position with x and y coordinates
+        </ResponseField>
+        
+        <ResponseField name="data" type="object">
+          Agent metadata including name, description, and color
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="connections" type="array" required>
+      Array of connections between agents creating a linear flow
+      
+      <Expandable title="connection properties">
+        <ResponseField name="id" type="string">
+          Unique identifier for the connection
+        </ResponseField>
+        
+        <ResponseField name="sourceId" type="string">
+          Element ID of the source agent
+        </ResponseField>
+        
+        <ResponseField name="targetId" type="string">
+          Element ID of the target agent
+        </ResponseField>
+        
+        <ResponseField name="type" type="string">
+          Connection type (default)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "workflow": {
+    "elements": [
+      {
+        "id": "element-a8f3d2c-0",
+        "type": "agent",
+        "agentId": "3",
+        "position": { "x": 200, "y": 300 },
+        "data": {
+          "name": "Gmail Reader",
+          "description": "Reads emails from specific senders in Gmail",
+          "color": "#ecfdf5"
+        }
+      },
+      {
+        "id": "element-b7e4c1d-1",
+        "type": "agent",
+        "agentId": "1",
+        "position": { "x": 450, "y": 300 },
+        "data": {
+          "name": "Text Generator",
+          "description": "Generates text based on prompts",
+          "color": "#f0f9ff"
+        }
+      },
+      {
+        "id": "element-c6d5b2e-2",
+        "type": "agent",
+        "agentId": "4",
+        "position": { "x": 700, "y": 300 },
+        "data": {
+          "name": "Discord Messenger",
+          "description": "Sends messages to Discord servers via webhooks",
+          "color": "#eef2ff"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "connection-x9y2z1-0",
+        "sourceId": "element-a8f3d2c-0",
+        "targetId": "element-b7e4c1d-1",
+        "type": "default"
+      },
+      {
+        "id": "connection-w8v3u2-1",
+        "sourceId": "element-b7e4c1d-1",
+        "targetId": "element-c6d5b2e-2",
+        "type": "default"
+      }
+    ]
+  }
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+Returned when the prompt is missing or invalid:
+
+```json
+{
+  "error": "Prompt is required"
+}
+```
+
+### 401 Unauthorized
+
+Returned when authentication fails:
+
+```json
+{
+  "error": "Not authenticated"
+}
+```
+
+### 500 Internal Server Error
+
+Returned when workflow generation fails:
+
+```json
+{
+  "error": "Failed to generate workflow with OpenAI"
+}
+```
+
+## How It Works
+
+1. **AI Processing**: Your prompt is sent to GPT-4o with instructions about available agents
+2. **Agent Matching**: The AI selects appropriate agents from the 5 available types
+3. **Linear Flow**: Agents are arranged in a left-to-right linear sequence
+4. **Auto-Positioning**: Elements are automatically positioned on the canvas with proper spacing
+5. **Connection Creation**: Connections are created between adjacent agents
+
+## Available Agents
+
+The AI can only use these 5 agents when generating workflows:
+
+- **Text Generator** - AI-powered text generation
+- **Gmail Sender** - Send emails via Gmail
+- **Gmail Reader** - Read emails from Gmail
+- **Discord Messenger** - Send Discord messages
+- **GitHub Reader** - Monitor GitHub repositories
+
+## Workflow Constraints
+
+<Note>
+  Generated workflows are **linear** (start to finish, left to right) and use **3-7 agents maximum** for optimal usability.
+</Note>
+
+## Configuration Required
+
+After generating a workflow:
+
+1. Each agent must be individually configured with credentials
+2. Prompts and parameters need to be customized
+3. Connections can be adjusted if needed
+4. Test each agent before running the full workflow
+
+## Environment Requirements
+
+<Warning>
+  The Supabase project must have `OPENAI_API_KEY` environment variable configured in Edge Function secrets for this endpoint to work.
+</Warning>
+
+## Usage in Agility UI
+
+This endpoint is called when users:
+- Type a workflow description in the AI generation input
+- Click the "Generate Workflow" button
+- The generated workflow appears on the canvas ready for configuration
+
+## Best Practices
+
+1. **Be Specific**: Include service names (Gmail, Discord, GitHub) in your prompt
+2. **Describe Actions**: Use verbs like "read", "send", "generate", "monitor"
+3. **Linear Flow**: Describe workflows as sequential steps
+4. **Keep it Simple**: Focus on 3-5 main steps for best results
+
+## Example Prompts
+
+<AccordionGroup>
+  <Accordion title="Email Automation">
+    "Read support emails from Gmail, generate AI responses using GPT-4, and send replies back via Gmail"
+  </Accordion>
+  
+  <Accordion title="DevOps Notifications">
+    "Monitor GitHub commits, summarize changes with AI, and post updates to Discord"
+  </Accordion>
+  
+  <Accordion title="Content Pipeline">
+    "Generate blog content using AI and send it to my email for review"
+  </Accordion>
+</AccordionGroup>

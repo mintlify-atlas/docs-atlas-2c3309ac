@@ -77,11 +77,15 @@
             "pages": [
               "api/overview",
               "api/run-workflow",
+              "api/generate-workflow",
               "api/generate-text",
               "api/read-gmail",
               "api/send-gmail",
               "api/send-discord",
-              "api/read-github"
+              "api/read-github",
+              "api/manage-workflows",
+              "api/manage-agent-configs",
+              "api/manage-connections"
             ]
           },
           {
