@@ -1,0 +1,563 @@
+---
+title: Supabase Setup
+description: Step-by-step guide to configure Supabase for Agility deployment
+---
+
+Supabase provides the backend infrastructure for Agility, including authentication, database, and edge functions. This guide walks you through setting up Supabase from scratch.
+
+## Prerequisites
+
+Before you begin:
+
+- Node.js 18+ installed
+- A [Supabase account](https://supabase.com) (free tier works)
+- The Agility source code
+- Basic familiarity with SQL and command line
+
+## Step 1: Create a Supabase Project
+
+<Steps>
+  <Step title="Sign up for Supabase">
+    Go to [supabase.com](https://supabase.com) and create an account if you haven't already.
+  </Step>
+  
+  <Step title="Create a new project">
+    1. Click "New Project"
+    2. Choose your organization
+    3. Enter project details:
+       - **Name:** agility (or your preferred name)
+       - **Database Password:** Generate a strong password and save it securely
+       - **Region:** Choose the region closest to your users
+    4. Click "Create new project"
+    
+    <Note>
+      Project creation takes 2-3 minutes. Supabase sets up your database, API, and authentication services.
+    </Note>
+  </Step>
+  
+  <Step title="Save project credentials">
+    Once the project is ready:
+    1. Navigate to Settings → API
+    2. Save the following:
+       - **Project URL** (for `NEXT_PUBLIC_SUPABASE_URL`)
+       - **anon public key** (for `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+  </Step>
+</Steps>
+
+## Step 2: Configure Database Schema
+
+Agility requires several database tables to store workflows, agent configurations, and credentials.
+
+### Required Tables
+
+Create the following tables in your Supabase project:
+
+#### 1. `user_workflows`
+
+Stores user workflow definitions.
+
+```sql
+CREATE TABLE user_workflows (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'My Workflow',
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Enable Row Level Security
+ALTER TABLE user_workflows ENABLE ROW LEVEL SECURITY;
+
+-- Create policy: Users can only access their own workflows
+CREATE POLICY "Users can manage their own workflows"
+  ON user_workflows
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 2. `agent_configs`
+
+Stores agent configuration and credentials.
+
+```sql
+CREATE TABLE agent_configs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  element_id TEXT NOT NULL,
+  agent_type TEXT NOT NULL,
+  config JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, element_id)
+);
+
+ALTER TABLE agent_configs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own agent configs"
+  ON agent_configs
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 3. `agent_connections`
+
+Stores connections between agents in workflows.
+
+```sql
+CREATE TABLE agent_connections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  source_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, source_id, target_id)
+);
+
+ALTER TABLE agent_connections ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own connections"
+  ON agent_connections
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 4. `agent_outputs`
+
+Stores agent execution results.
+
+```sql
+CREATE TABLE agent_outputs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  element_id TEXT NOT NULL,
+  output JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, element_id)
+);
+
+ALTER TABLE agent_outputs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own outputs"
+  ON agent_outputs
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 5. `user_gmail_credentials`
+
+Stores encrypted Gmail OAuth credentials.
+
+```sql
+CREATE TABLE user_gmail_credentials (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  client_id TEXT NOT NULL,
+  client_secret TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+ALTER TABLE user_gmail_credentials ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own gmail credentials"
+  ON user_gmail_credentials
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+### Running the Schema
+
+<Steps>
+  <Step title="Open SQL Editor">
+    In your Supabase dashboard, navigate to SQL Editor.
+  </Step>
+  
+  <Step title="Create tables">
+    Copy and paste each table creation script above into the SQL Editor and run them one at a time.
+  </Step>
+  
+  <Step title="Verify tables">
+    Go to Table Editor to verify all tables were created successfully.
+  </Step>
+</Steps>
+
+<Warning>
+  Row Level Security (RLS) is critical for data protection. Ensure all policies are created correctly to prevent unauthorized access.
+</Warning>
+
+## Step 3: Configure Authentication
+
+Agility uses Supabase Auth for user management.
+
+<Steps>
+  <Step title="Enable email authentication">
+    1. Go to Authentication → Providers
+    2. Ensure "Email" provider is enabled
+    3. Configure email templates if desired
+  </Step>
+  
+  <Step title="Configure auth settings">
+    In Authentication → Settings:
+    - **Site URL:** Your production domain (e.g., `https://yourdomain.com`)
+    - **Redirect URLs:** Add allowed redirect URLs (your domain + `/gmail-oauth-callback`)
+  </Step>
+  
+  <Step title="Optional: Enable additional providers">
+    You can enable OAuth providers like Google, GitHub, etc. for easier sign-in.
+  </Step>
+</Steps>
+
+## Step 4: Install Supabase CLI
+
+The Supabase CLI is required to deploy edge functions.
+
+### Installation
+
+```bash
+# macOS
+brew install supabase/tap/supabase
+
+# Windows (via Scoop)
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
+
+# Linux
+brew install supabase/tap/supabase
+
+# npm (cross-platform)
+npm install -g supabase
+```
+
+### Login to Supabase
+
+```bash
+supabase login
+```
+
+This will open a browser window to authenticate with Supabase.
+
+### Link to Your Project
+
+```bash
+cd /path/to/agility/source
+supabase link --project-ref your-project-ref
+```
+
+<Note>
+  Find your project ref in Supabase Dashboard → Settings → General → Reference ID
+</Note>
+
+## Step 5: Configure Edge Function Secrets
+
+Edge functions need access to sensitive configuration via secrets.
+
+### Set Required Secrets
+
+```bash
+# Generate a secure encryption key
+ENCRYPTION_KEY=$(openssl rand -base64 32)
+
+# Set the encryption key
+supabase secrets set ENCRYPTION_KEY="$ENCRYPTION_KEY"
+
+# Set Google OAuth credentials (for Gmail integration)
+supabase secrets set GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+supabase secrets set GOOGLE_CLIENT_SECRET="your-client-secret"
+supabase secrets set GMAIL_OAUTH_REDIRECT_URI="https://yourdomain.com/gmail-oauth-callback"
+```
+
+<Warning>
+  **Important:** Save the `ENCRYPTION_KEY` value! You'll need to set the same value as `NEXT_PUBLIC_ENCRYPTION_KEY` in your frontend deployment.
+</Warning>
+
+### Verify Secrets
+
+```bash
+supabase secrets list
+```
+
+You should see:
+- `ENCRYPTION_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GMAIL_OAUTH_REDIRECT_URI`
+
+## Step 6: Deploy Edge Functions
+
+Agility includes multiple edge functions that need to be deployed.
+
+### Deploy All Functions
+
+```bash
+cd /path/to/agility/source
+supabase functions deploy
+```
+
+This deploys all functions in the `supabase/functions` directory:
+
+- `generate-text` - Text generation using OpenAI/Anthropic
+- `generate-workflow` - AI workflow generation
+- `gmail-oauth` - Gmail OAuth flow handler
+- `read-gmail` - Read emails from Gmail
+- `send-gmail` - Send emails via Gmail
+- `read-github` - Read GitHub repository events
+- `github-webhook` - Handle GitHub webhooks
+- `setup-github-webhook` - Configure GitHub webhooks
+- `send-discord` - Send messages to Discord
+- `manage-workflows` - Workflow CRUD operations
+- `manage-agent-configs` - Agent configuration management
+- `manage-connections` - Connection management
+- `manage-api-keys` - API key management
+- `manage-gmail-credentials` - Gmail credentials management
+- `run-workflow` - Execute workflows
+
+### Deploy a Single Function
+
+```bash
+supabase functions deploy function-name
+```
+
+### Verify Deployment
+
+```bash
+supabase functions list
+```
+
+All functions should show as "deployed".
+
+### View Function Logs
+
+```bash
+# View logs for a specific function
+supabase functions logs generate-text
+
+# Follow logs in real-time
+supabase functions logs generate-text --follow
+```
+
+## Step 7: Set Up Google Cloud Project (for Gmail)
+
+To use Gmail agents, you need to configure Google OAuth.
+
+<Steps>
+  <Step title="Create Google Cloud project">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com)
+    2. Click "Select a project" → "New Project"
+    3. Enter project name: "Agility" (or your preferred name)
+    4. Click "Create"
+  </Step>
+  
+  <Step title="Enable Gmail API">
+    1. In the Google Cloud Console, go to "APIs & Services" → "Library"
+    2. Search for "Gmail API"
+    3. Click "Gmail API" and then "Enable"
+  </Step>
+  
+  <Step title="Configure OAuth consent screen">
+    1. Go to "APIs & Services" → "OAuth consent screen"
+    2. Choose "External" user type
+    3. Fill in required fields:
+       - **App name:** Agility
+       - **User support email:** Your email
+       - **Developer contact:** Your email
+    4. Click "Save and Continue"
+    5. Add scopes:
+       - `https://www.googleapis.com/auth/gmail.send`
+       - `https://www.googleapis.com/auth/gmail.readonly`
+       - `https://www.googleapis.com/auth/userinfo.email`
+    6. Add test users if in testing mode
+    7. Click "Save and Continue"
+  </Step>
+  
+  <Step title="Create OAuth credentials">
+    1. Go to "APIs & Services" → "Credentials"
+    2. Click "Create Credentials" → "OAuth 2.0 Client ID"
+    3. Choose "Web application"
+    4. Enter name: "Agility Web Client"
+    5. Add "Authorized redirect URIs":
+       - `http://localhost:3000/gmail-oauth-callback` (for development)
+       - `https://yourdomain.com/gmail-oauth-callback` (for production)
+    6. Click "Create"
+    7. Save the **Client ID** and **Client Secret**
+  </Step>
+  
+  <Step title="Update Supabase secrets">
+    Use the Client ID and Secret from the previous step:
+    
+    ```bash
+    supabase secrets set GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+    supabase secrets set GOOGLE_CLIENT_SECRET="your-client-secret"
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Make sure the redirect URI in Google Cloud Console **exactly** matches the `GMAIL_OAUTH_REDIRECT_URI` secret, including protocol (http/https) and path.
+</Warning>
+
+## Step 8: Test the Setup
+
+Verify your Supabase setup is working correctly.
+
+### Test Database Connection
+
+1. Run your Next.js app locally:
+   ```bash
+   npm run dev
+   ```
+
+2. Sign up for an account
+3. Create a simple workflow
+4. Check Supabase Dashboard → Table Editor → `user_workflows` to see the data
+
+### Test Edge Functions
+
+1. Configure a Text Generator agent with an OpenAI API key
+2. Click "Test Agent"
+3. Check Supabase Dashboard → Edge Functions → Logs for any errors
+
+### Test Gmail Integration
+
+1. Add a Gmail Sender or Gmail Reader agent
+2. Click "Authorize Gmail"
+3. Complete the OAuth flow
+4. Check `user_gmail_credentials` table for encrypted credentials
+
+## Backup and Recovery
+
+### Database Backups
+
+Supabase automatically backs up your database daily on paid plans. For the free tier:
+
+```bash
+# Manual backup using pg_dump
+supabase db dump -f backup.sql
+
+# Restore from backup
+supabase db reset --db-url "postgresql://..."
+psql -d your_database < backup.sql
+```
+
+### Migration Management
+
+For production deployments, use migrations:
+
+```bash
+# Create a new migration
+supabase migration new add_new_table
+
+# Edit the migration file in supabase/migrations/
+
+# Apply migrations
+supabase db push
+```
+
+## Monitoring and Maintenance
+
+### Database Monitoring
+
+- Monitor database size in Supabase Dashboard → Database → Usage
+- Set up alerts for high connection counts
+- Review slow query logs regularly
+
+### Edge Function Monitoring
+
+- Check function invocation counts and errors in Dashboard → Edge Functions
+- Monitor response times
+- Review logs for unusual patterns
+
+### Security Audits
+
+<Steps>
+  <Step title="Review RLS policies">
+    Regularly verify Row Level Security policies are working correctly.
+  </Step>
+  
+  <Step title="Audit user access">
+    Review authentication logs in Dashboard → Authentication → Logs
+  </Step>
+  
+  <Step title="Rotate secrets">
+    Change encryption keys and OAuth credentials periodically:
+    ```bash
+    supabase secrets set ENCRYPTION_KEY="new-key"
+    ```
+    
+    <Warning>
+      Rotating the encryption key will invalidate all encrypted data. Plan for re-encryption or user re-authorization.
+    </Warning>
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### "Failed to fetch" Errors
+
+**Cause:** CORS or network connectivity issues.
+
+**Solution:**
+1. Verify Supabase URL is correct
+2. Check that edge functions are deployed
+3. Review CORS configuration in edge functions
+
+### RLS Policy Errors
+
+**Cause:** Row Level Security preventing data access.
+
+**Solution:**
+1. Test policies in SQL Editor:
+   ```sql
+   SELECT * FROM user_workflows WHERE auth.uid() = 'user-id';
+   ```
+2. Verify user is authenticated
+3. Check policy conditions match your use case
+
+### Edge Function Timeouts
+
+**Cause:** Function execution exceeds time limit (default 30s).
+
+**Solution:**
+1. Optimize function code
+2. Use Supabase async patterns
+3. Increase timeout if on paid plan
+
+### Gmail OAuth Fails
+
+**Cause:** OAuth configuration mismatch.
+
+**Solution:**
+1. Verify redirect URI exactly matches Google Cloud Console
+2. Check Gmail API is enabled
+3. Ensure app is published or user is added as test user
+4. Review edge function logs for detailed error messages
+
+## Production Checklist
+
+Before going live:
+
+✅ All database tables created with RLS enabled  
+✅ All edge functions deployed successfully  
+✅ All required secrets configured  
+✅ Google OAuth configured with production redirect URI  
+✅ Database backups enabled  
+✅ Authentication settings configured correctly  
+✅ Test user sign-up and login flow  
+✅ Test workflow creation and execution  
+✅ Test agent configurations  
+✅ Test Gmail OAuth flow  
+✅ Monitor edge function logs for errors  
+
+## Next Steps
+
+- [Environment Variables](/deployment/environment-variables) - Configure all required variables
+- [Deployment Overview](/deployment/overview) - Deploy the frontend application

@@ -1,0 +1,249 @@
+---
+title: 'Read GitHub'
+description: 'Fetch commit information from GitHub repositories'
+---
+
+## POST /functions/v1/read-github
+
+Fetches the latest commit information from a GitHub repository using a personal access token.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="elementId" type="string" required>
+  The workflow element ID used to load GitHub configuration from the database.
+</ParamField>
+
+<ParamField body="accessToken" type="string">
+  GitHub personal access token. If not provided, will be loaded from agent configuration based on `elementId`.
+</ParamField>
+
+<ParamField body="repository" type="string">
+  Repository in the format `owner/repo` (e.g., `facebook/react`). If not provided, will be loaded from agent configuration.
+</ParamField>
+
+<ParamField body="branch" type="string" default="main">
+  Branch name to fetch commits from. Defaults to `main`.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the GitHub data was fetched successfully
+</ResponseField>
+
+<ResponseField name="repoName" type="string">
+  The repository name in `owner/repo` format
+</ResponseField>
+
+<ResponseField name="branch" type="string">
+  The branch that was queried
+</ResponseField>
+
+<ResponseField name="commits" type="array">
+  Array of commit objects (limited to 1 by default)
+  
+  <ResponseField name="id" type="string">
+    The commit SHA hash
+  </ResponseField>
+  
+  <ResponseField name="message" type="string">
+    Commit message
+  </ResponseField>
+  
+  <ResponseField name="author" type="string">
+    Name of the commit author
+  </ResponseField>
+  
+  <ResponseField name="timestamp" type="string">
+    ISO 8601 timestamp of when the commit was made
+  </ResponseField>
+  
+  <ResponseField name="url" type="string">
+    GitHub URL to view the commit
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  Human-readable summary of the commit information
+</ResponseField>
+
+## GitHub API
+
+The function uses GitHub REST API v3:
+
+```
+GET https://api.github.com/repos/{owner}/{repo}/commits
+  ?sha={branch}
+  &per_page=1
+```
+
+### Required Headers
+
+- `Authorization: token {accessToken}`
+- `Accept: application/vnd.github.v3+json`
+- `User-Agent: Workflow-Agent`
+
+## Configuration Loading
+
+When parameters are not provided directly:
+
+1. Queries `agent_configs` table for `github_reader` configuration
+2. Filters by `user_id` and `element_id`
+3. Extracts `accessToken`, `repository`, and `branch`
+4. Uses configuration values as defaults
+
+## Examples
+
+### Request with Element ID
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/read-github \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "github-reader-123"
+  }'
+```
+
+### Request with Full Parameters
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/read-github \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "github-reader-123",
+    "accessToken": "ghp_...",
+    "repository": "facebook/react",
+    "branch": "main"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "repoName": "facebook/react",
+  "branch": "main",
+  "commits": [
+    {
+      "id": "abc123def456789...",
+      "message": "Fix: Update component lifecycle method",
+      "author": "John Doe",
+      "timestamp": "2026-03-03T10:30:00Z",
+      "url": "https://github.com/facebook/react/commit/abc123def456789"
+    }
+  ],
+  "summary": "Latest commit: \"Fix: Update component lifecycle method\" by John Doe on 3/3/2026, 10:30:00 AM"
+}
+```
+
+### Empty Response (No Commits)
+
+```json
+{
+  "success": true,
+  "repoName": "owner/repo",
+  "branch": "main",
+  "commits": [],
+  "summary": "No commits found in owner/repo on branch main"
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Failed to fetch GitHub data: Not Found"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Element ID is required` | Missing elementId parameter |
+| 400 | `Repository name is required` | Missing repository parameter |
+| 400 | `GitHub access token not found in configuration` | No access token in config |
+| 500 | `Failed to retrieve GitHub configuration` | Database error loading configuration |
+| 500 | `Failed to fetch GitHub data` | GitHub API error (invalid token, repo not found, etc.) |
+
+## GitHub Access Token
+
+### Required Permissions
+
+The personal access token needs:
+- `repo` scope for private repositories
+- `public_repo` scope for public repositories only
+
+### Token Security
+
+- Tokens are stored in `agent_configs` table
+- Not encrypted (consider encrypting in production)
+- Associated with specific `user_id` and `element_id`
+
+## Output Storage
+
+Successful fetches are stored in `agent_outputs` table:
+
+```json
+{
+  "user_id": "user-uuid",
+  "element_id": "github-reader-123",
+  "output": {
+    "repoName": "facebook/react",
+    "branch": "main",
+    "commits": [...],
+    "summary": "Latest commit: ..."
+  },
+  "created_at": "2026-03-03T18:30:00.000Z"
+}
+```
+
+## Workflow Integration
+
+When used in workflows, the output is available for subsequent agents:
+
+```javascript
+// Available placeholders in downstream agents:
+{{input.repoName}}        // "facebook/react"
+{{input.branch}}          // "main"
+{{input.commits.0.id}}    // First commit SHA
+{{input.summary}}         // Human-readable summary
+```
+
+## GitHub API Rate Limits
+
+- **Authenticated**: 5,000 requests per hour
+- **Unauthenticated**: 60 requests per hour
+- Rate limit headers are not checked by this function
+
+## Commit Limit
+
+Currently hardcoded to fetch 1 commit (`per_page=1`). To modify:
+
+- Change the `per_page` parameter in the GitHub API URL
+- The response will include more commits in the array
+
+## Notes
+
+- Only fetches the latest commit by default
+- The `branch` parameter can be any valid branch name or tag
+- Repository must be accessible with the provided access token
+- Private repositories require appropriate token permissions
+- The function does not support pagination for multiple commits
+- Configuration is stored with `agent_type: 'github_reader'`
+- Access tokens should use GitHub's fine-grained permissions when possible

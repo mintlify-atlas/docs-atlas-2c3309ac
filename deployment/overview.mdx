@@ -1,0 +1,239 @@
+---
+title: Deployment Overview
+description: Learn how to deploy Agility to production environments
+---
+
+Agility is built on Next.js and Supabase, making it easy to deploy to various platforms. This guide covers deployment options and best practices.
+
+## Architecture Overview
+
+Agility consists of two main components:
+
+1. **Next.js Frontend Application** - The web interface and client-side logic
+2. **Supabase Backend** - Database, authentication, and edge functions
+
+## Deployment Options
+
+### Recommended: Vercel + Supabase
+
+The recommended deployment stack combines:
+- **Vercel** for hosting the Next.js application
+- **Supabase** for backend services (database, auth, edge functions)
+
+This setup provides:
+- Zero-config deployment for Next.js
+- Automatic HTTPS and CDN
+- Serverless edge functions
+- Built-in authentication
+- PostgreSQL database
+
+### Alternative Platforms
+
+While Vercel is recommended, you can deploy the Next.js application to:
+- Netlify
+- AWS Amplify
+- Self-hosted Node.js server
+- Docker containers
+
+<Warning>
+  Regardless of frontend hosting, you **must** use Supabase for the backend as Agility's edge functions are built specifically for Supabase.
+</Warning>
+
+## Deployment Checklist
+
+Before deploying to production:
+
+<Steps>
+  <Step title="Set up Supabase project">
+    Create a Supabase project and configure the database schema.
+    
+    See [Supabase Setup](/deployment/supabase-setup) for detailed instructions.
+  </Step>
+  
+  <Step title="Configure environment variables">
+    Set up all required environment variables for your deployment platform.
+    
+    See [Environment Variables](/deployment/environment-variables) for the complete list.
+  </Step>
+  
+  <Step title="Deploy edge functions">
+    Deploy Supabase edge functions using the Supabase CLI.
+    
+    ```bash
+    supabase functions deploy
+    ```
+  </Step>
+  
+  <Step title="Deploy frontend application">
+    Deploy the Next.js application to your chosen platform.
+    
+    For Vercel:
+    ```bash
+    vercel --prod
+    ```
+  </Step>
+  
+  <Step title="Configure OAuth callbacks">
+    Update OAuth redirect URIs in your Google Cloud Console to match your production domain.
+  </Step>
+  
+  <Step title="Test the deployment">
+    Verify all features work correctly:
+    - User authentication
+    - Workflow creation and execution
+    - Agent configurations
+    - Service integrations (Gmail, GitHub, Discord)
+  </Step>
+</Steps>
+
+## Deploying to Vercel
+
+Vercel provides the simplest deployment experience for Next.js applications.
+
+### Using Vercel CLI
+
+<Steps>
+  <Step title="Install Vercel CLI">
+    ```bash
+    npm install -g vercel
+    ```
+  </Step>
+  
+  <Step title="Login to Vercel">
+    ```bash
+    vercel login
+    ```
+  </Step>
+  
+  <Step title="Deploy">
+    From your project root:
+    ```bash
+    vercel
+    ```
+    
+    For production deployment:
+    ```bash
+    vercel --prod
+    ```
+  </Step>
+</Steps>
+
+### Using Vercel Dashboard
+
+<Steps>
+  <Step title="Connect repository">
+    1. Go to [vercel.com](https://vercel.com)
+    2. Click "Add New Project"
+    3. Import your Git repository
+  </Step>
+  
+  <Step title="Configure build settings">
+    Vercel automatically detects Next.js projects. Verify:
+    - **Framework Preset**: Next.js
+    - **Build Command**: `next build`
+    - **Output Directory**: `.next`
+  </Step>
+  
+  <Step title="Add environment variables">
+    Add all required environment variables in the project settings.
+  </Step>
+  
+  <Step title="Deploy">
+    Click "Deploy" to start the deployment process.
+  </Step>
+</Steps>
+
+## Security Considerations
+
+### Environment Variables
+
+<Warning>
+  Never commit `.env.local` or any file containing secrets to version control.
+</Warning>
+
+- Use platform-specific secret management (Vercel Environment Variables, AWS Secrets Manager, etc.)
+- Rotate API keys and tokens regularly
+- Use different credentials for development and production
+
+### Encryption Key
+
+Agility uses an encryption key to protect sensitive data like API keys and OAuth tokens:
+
+- Set a strong, random encryption key in production
+- **Never** use the default encryption key (`default-encryption-key`)
+- Use the same encryption key across frontend and backend
+- Store the encryption key securely (never in version control)
+
+```bash
+# Generate a secure encryption key
+openssl rand -base64 32
+```
+
+### Database Security
+
+- Enable Row Level Security (RLS) in Supabase
+- Use Supabase's built-in authentication
+- Regularly backup your database
+- Monitor database access logs
+
+## Performance Optimization
+
+### Frontend Optimization
+
+- Enable Next.js production optimizations (automatic in build)
+- Use Vercel's Edge Network for global distribution
+- Implement proper caching strategies
+- Optimize images using Next.js Image component
+
+### Backend Optimization
+
+- Use Supabase connection pooling
+- Implement proper database indexes
+- Monitor edge function performance
+- Use Supabase's built-in caching
+
+## Monitoring and Logging
+
+### Application Monitoring
+
+- Use Vercel Analytics for frontend performance
+- Monitor Supabase edge function logs
+- Set up error tracking (Sentry, LogRocket, etc.)
+- Monitor API rate limits and usage
+
+### Database Monitoring
+
+- Use Supabase Dashboard for database metrics
+- Monitor query performance
+- Track connection pool usage
+- Set up alerts for critical issues
+
+## Troubleshooting
+
+### Common Deployment Issues
+
+**Build Failures**
+- Verify all dependencies are in `package.json`
+- Check Node.js version compatibility (18+)
+- Review build logs for specific errors
+
+**Environment Variable Issues**
+- Ensure all required variables are set
+- Verify variable names match exactly (case-sensitive)
+- Check for typos in variable values
+
+**Edge Function Errors**
+- Review Supabase function logs
+- Verify function deployment was successful
+- Check CORS configuration
+- Ensure encryption keys match
+
+**Authentication Issues**
+- Verify Supabase URL and anon key are correct
+- Check OAuth redirect URIs match production domain
+- Ensure middleware is configured correctly
+
+## Next Steps
+
+- [Environment Variables](/deployment/environment-variables) - Complete list of required variables
+- [Supabase Setup](/deployment/supabase-setup) - Detailed backend configuration guide

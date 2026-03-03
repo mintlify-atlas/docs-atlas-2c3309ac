@@ -1,0 +1,270 @@
+---
+title: Connecting Agents
+description: Learn how to connect agents together and manage data flow in your workflows
+---
+
+Connections between agents define how data flows through your workflow. This guide covers everything you need to know about creating and managing agent connections.
+
+## Understanding Connections
+
+In Agility, connections represent the flow of data from one agent to another. When agents are connected:
+
+- **Data flows** from the source agent to the target agent
+- **Output** from the source becomes **input** for the target
+- **Execution order** is determined by the connection graph
+
+### Connection Visualization
+
+Connections appear as animated arrows (">") flowing from source to target, making it easy to understand the data flow direction at a glance.
+
+## Creating Connections
+
+<Steps>
+  <Step title="Locate the Connection Handle">
+    Each agent card has a circular connection handle on its right side. This handle has:
+    - A white background
+    - A black border (2px)
+    - A right-pointing chevron icon
+    - Hover effect that scales it to 110%
+  </Step>
+
+  <Step title="Start the Connection">
+    Click and hold the connection handle, then drag away from the agent. You'll see:
+    - The source agent border turns **green**
+    - The cursor changes to a **crosshair**
+    - A temporary blue connection line follows your cursor
+    - An animated blue circle at the end of the line
+    - Instructions appear at the top: "Drag to a target node or release to cancel"
+  </Step>
+
+  <Step title="Target an Agent">
+    Drag the connection line to another agent. When hovering over a potential target:
+    - The target agent border turns **blue**
+    - The border width increases (3px)
+    - The target agent scales slightly (102%)
+    - The agent's z-index increases for visibility
+  </Step>
+
+  <Step title="Complete the Connection">
+    Release the mouse button while hovering over the target agent. The connection is created with:
+    - Animated arrows showing data flow
+    - A unique connection ID
+    - Default connection type
+  </Step>
+</Steps>
+
+<Note>
+You cannot connect an agent to itself. If you try to release on the source agent, the connection will be cancelled.
+</Note>
+
+## Connection States
+
+### Active Connection Mode
+
+When creating a connection, the canvas enters "connection mode":
+
+- Canvas cursor changes to crosshair
+- Panning is temporarily disabled
+- Source agent shows green border
+- Other agents show blue borders as potential targets
+- Temporary connection line follows the cursor
+
+### Canceling a Connection
+
+You can cancel a connection in three ways:
+
+1. **Release on empty space** - Let go of the mouse button without hovering over an agent
+2. **Click the canvas** - Click anywhere on the canvas background
+3. **Press Escape** - Press the Escape key
+
+<Tip>
+If you accidentally start a connection, simply release the mouse button without targeting an agent.
+</Tip>
+
+## Managing Data Flow
+
+### Input Structures
+
+When configuring an agent that receives input from other agents, you can see the available input data structure:
+
+1. Open the agent's configuration sidebar
+2. Look for the "Input Structure" section at the top
+3. See all fields available from connected source agents
+4. Click on field paths to insert them into prompts or configurations
+
+### Using Input Fields
+
+In agent configurations (like Text Generator), you can reference input from connected agents:
+
+```
+Summarize this email: {{email.body}}
+From: {{email.sender}}
+Subject: {{email.subject}}
+```
+
+<Steps>
+  <Step title="View Available Fields">
+    The Input Structure Display shows all fields from connected agents in a collapsible tree format.
+  </Step>
+
+  <Step title="Insert Fields">
+    Click on any field path (shown in a monospace font) to insert it into your prompt at the cursor position.
+  </Step>
+
+  <Step title="Use in Configuration">
+    Fields are automatically resolved when the workflow runs, replacing placeholders with actual data.
+  </Step>
+</Steps>
+
+## Connection Management
+
+### Viewing Connections
+
+All connections are visible as animated arrow lines on the canvas. Each connection shows:
+
+- Multiple "greater-than" symbols (>) spaced along the line
+- Direction of data flow
+- Angle adjusted to match the connection path
+
+### Deleting Connections
+
+To remove a connection:
+
+1. Click on the connection line
+2. The connection will be removed from the workflow
+3. Both source and target agents remain on the canvas
+
+<Warning>
+Deleting a connection cannot be undone. Make sure you want to remove the connection before clicking.
+</Warning>
+
+### Deleting Connected Agents
+
+When you delete an agent that has connections:
+
+- The agent is removed from the canvas
+- All connections **to** that agent are automatically deleted
+- All connections **from** that agent are automatically deleted
+- Other agents remain unaffected
+
+## Connection Patterns
+
+### Linear Flow
+
+The simplest pattern - agents connected in a sequence:
+
+```
+Agent A → Agent B → Agent C
+```
+
+Example: Email Reader → Text Generator → Email Sender
+
+### Fan-Out Pattern
+
+One agent sends data to multiple targets:
+
+```
+Agent A → Agent B
+Agent A → Agent C
+Agent A → Agent D
+```
+
+Example: Text Generator → Discord Messenger + Email Sender + Slack Notifier
+
+### Fan-In Pattern
+
+Multiple agents send data to one target:
+
+```
+Agent A → Agent D
+Agent B → Agent D
+Agent C → Agent D
+```
+
+Example: GitHub Reader + Email Reader + Slack Reader → Text Summarizer
+
+### Complex Workflows
+
+Combine patterns for sophisticated automations:
+
+```
+Agent A → Agent B → Agent D
+Agent A → Agent C → Agent D → Agent E
+```
+
+## Technical Details
+
+### Connection Objects
+
+Each connection has:
+
+- **id**: Unique identifier (generated from timestamp)
+- **sourceId**: Element ID of the source agent
+- **targetId**: Element ID of the target agent
+- **type**: Connection type (default)
+
+### Position Calculation
+
+Connection lines are dynamically calculated based on:
+
+- Source agent position (center point)
+- Target agent position (center point)
+- Pan offset (canvas translation)
+- Zoom level (if implemented)
+
+### Rendering
+
+Connections are rendered using SVG:
+
+- Text elements for arrow symbols
+- Rotation transforms for angle alignment
+- Spacing calculation based on distance
+- Pointer events disabled for performance
+
+## Troubleshooting
+
+### Connection Not Appearing
+
+- Ensure both agents are fully on the canvas
+- Check that you released on the target agent (not empty space)
+- Verify the canvas is not in pan mode
+
+### Cannot Start Connection
+
+- Make sure you're clicking the connection handle (circle on right side)
+- Check that you're not in the middle of panning
+- Verify the agent card is not being dragged
+
+### Visual Artifacts
+
+- If connections appear incorrectly, try refreshing the page
+- Save your workflow before refreshing
+- The workflow will reload with all connections intact
+
+## Best Practices
+
+### Connection Design
+
+- **Minimize crossings** - Arrange agents to reduce overlapping connection lines
+- **Group related agents** - Keep connected agents close together
+- **Follow data flow** - Position agents left-to-right matching data movement
+- **Test incrementally** - Test each connection as you create it
+
+### Data Flow
+
+- **Verify inputs** - Check that target agents receive expected data structure
+- **Use field references** - Reference input fields explicitly in configurations
+- **Handle missing data** - Consider what happens if source agent returns no data
+- **Test end-to-end** - Run the complete workflow to verify data flows correctly
+
+### Performance
+
+- **Avoid cycles** - Don't create circular connections (A → B → A)
+- **Limit fan-out** - Too many connections from one agent can slow execution
+- **Save frequently** - Connections are saved with the workflow
+
+## Next Steps
+
+- Learn how to [test workflows](/guides/testing-workflows) and individual agents
+- Explore [common patterns](/guides/common-patterns) for effective workflow design
+- Review agent-specific documentation for input/output details

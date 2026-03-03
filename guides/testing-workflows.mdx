@@ -1,0 +1,349 @@
+---
+title: Testing Workflows
+description: Learn how to test your workflows and individual agents to ensure they work correctly
+---
+
+Testing is crucial for building reliable workflows. Agility provides multiple testing approaches to help you validate your automations before deployment.
+
+## Testing Approaches
+
+Agility offers two levels of testing:
+
+1. **Individual Agent Testing** - Test a single agent in isolation
+2. **Workflow Testing** - Test the entire workflow from start to finish
+
+<Tip>
+Always test individual agents before testing the complete workflow. This helps identify configuration issues quickly.
+</Tip>
+
+## Testing Individual Agents
+
+<Steps>
+  <Step title="Open Agent Configuration">
+    Click on the agent card you want to test. The configuration sidebar opens on the right side with a colored header matching the agent type.
+  </Step>
+
+  <Step title="Configure the Agent">
+    Complete the agent configuration:
+    - Add required API keys
+    - Set up prompts or parameters
+    - Configure any input field references
+    - Select appropriate models or settings
+    
+    <Note>
+    Each agent type has different configuration requirements. Check the configuration form for required fields.
+    </Note>
+  </Step>
+
+  <Step title="Save Configuration">
+    Click the "Save Configuration" button (green button). You'll see a confirmation message: "Configuration saved successfully!"
+    
+    This saves your settings so they're available when running the workflow.
+  </Step>
+
+  <Step title="Run Agent Test">
+    Click the "Test Agent" button (blue button) to test the agent individually. The button will show:
+    - "Loading..." while the test runs
+    - A spinning icon during execution
+    - Results or errors when complete
+  </Step>
+
+  <Step title="Review Results">
+    Test results appear in the configuration sidebar:
+    - **Success**: Generated output is displayed in a gray box
+    - **Error**: Error messages appear in a red box with details
+    
+    For Text Generator agents, you'll see the generated text. For other agents, you'll see relevant output.
+  </Step>
+</Steps>
+
+### Test Mode Features
+
+When testing individual agents:
+
+- Tests run in **isolation** without executing connected agents
+- Input data can be **simulated** or left empty
+- No data is **saved** or **sent** to external services (depends on agent type)
+- **API calls** are made with your configured keys
+- Results are **logged** for debugging
+
+<Warning>
+Some agents (like Gmail Sender or Discord Messenger) will actually send messages when tested. Use test accounts or channels when testing these agents.
+</Warning>
+
+## Testing Complete Workflows
+
+<Steps>
+  <Step title="Configure All Agents">
+    Before testing the workflow, ensure every agent is properly configured:
+    - API keys are set
+    - Prompts include proper field references
+    - All required parameters are filled
+    - Each agent has been individually tested
+  </Step>
+
+  <Step title="Save the Workflow">
+    Click "Save Workflow" in the top-right corner. The button shows:
+    - "Saving..." with a spinner during save
+    - Returns to "Save Workflow" when complete
+    
+    A toast notification confirms: "Workflow saved successfully!"
+  </Step>
+
+  <Step title="Select Starting Agent">
+    Click on the agent where you want to start the workflow execution. This is typically:
+    - An input agent (Gmail Reader, GitHub Reader)
+    - The first agent in your workflow sequence
+  </Step>
+
+  <Step title="Run Workflow Test">
+    In the agent's configuration sidebar, click the "Test Workflow" button (purple button). The button displays:
+    - "Running Workflow..." with animated spinner
+    - Progress indication during execution
+  </Step>
+
+  <Step title="Monitor Execution">
+    Watch for toast notifications during execution:
+    - "Running workflow..." (info) when starting
+    - "Workflow completed successfully! (X steps executed)" (success) when done
+    - Error messages if something fails
+  </Step>
+
+  <Step title="Review Results">
+    Workflow results are stored in localStorage for debugging:
+    - Open browser DevTools
+    - Go to Application/Storage → Local Storage
+    - Find `lastWorkflowResults` key
+    - View JSON data with results from each step
+  </Step>
+</Steps>
+
+### Workflow Execution Flow
+
+When you test a workflow:
+
+1. **Starting point**: Execution begins at the selected agent
+2. **Sequential processing**: Agents execute in order based on connections
+3. **Data passing**: Output from each agent flows to connected agents
+4. **Error handling**: Execution stops if any agent fails
+5. **Result collection**: All outputs are collected and returned
+
+## Understanding Test Results
+
+### Success Indicators
+
+**Individual Agent Test**:
+```
+Generated Text
+─────────────────────────────────
+[Your generated output appears here]
+```
+
+**Workflow Test**:
+```
+Workflow completed successfully! (3 steps executed)
+```
+
+### Error Messages
+
+**Configuration Errors**:
+- "API key is required"
+- "You must be logged in to save configuration"
+- "Failed to save configuration"
+
+**Execution Errors**:
+- "Failed to generate text"
+- "You must be logged in to test the agent"
+- "Workflow failed: [specific error message]"
+
+**Network Errors**:
+- "Error: 401" - Authentication failed
+- "Error: 429" - Rate limit exceeded
+- "Error: 500" - Server error
+
+<Note>
+Error messages include specific details to help you diagnose issues quickly. Read the error message carefully to understand what went wrong.
+</Note>
+
+## Testing Best Practices
+
+### Before Testing
+
+<Steps>
+  <Step title="Verify Configuration">
+    - All API keys are valid and have proper permissions
+    - Prompts are complete and reference the correct fields
+    - Agent settings match your intended use case
+  </Step>
+
+  <Step title="Check Connections">
+    - All agents are properly connected
+    - Data flows in the correct direction
+    - No circular connections exist
+  </Step>
+
+  <Step title="Save Everything">
+    - Save all agent configurations
+    - Save the complete workflow
+    - Wait for confirmation messages
+  </Step>
+</Steps>
+
+### During Testing
+
+- **Test incrementally** - Test each new agent before adding more
+- **Start simple** - Begin with 2-3 agents, then expand
+- **Monitor output** - Check that each agent produces expected results
+- **Note execution time** - Track how long the workflow takes
+- **Watch for errors** - Pay attention to error messages and warnings
+
+### After Testing
+
+- **Review all outputs** - Verify each agent produced correct results
+- **Check external services** - Confirm emails were sent, messages posted, etc.
+- **Analyze performance** - Identify slow agents or bottlenecks
+- **Document findings** - Note any issues or unexpected behavior
+- **Iterate and improve** - Adjust configurations based on test results
+
+## Common Testing Scenarios
+
+### Testing Text Generation
+
+```
+Agent: Text Generator
+Input: Email body, sender, subject
+Prompt: "Summarize this email: {{email.body}}"
+Expected: Brief summary of email content
+```
+
+Test individually first, then test as part of larger workflow.
+
+### Testing Email Workflows
+
+```
+Workflow: Gmail Reader → Text Generator → Gmail Sender
+1. Test Gmail Reader - Verify emails are retrieved
+2. Test Text Generator - Verify summaries are created
+3. Test Gmail Sender - Verify emails are sent
+4. Test complete workflow - Verify end-to-end flow
+```
+
+### Testing Multi-Output Workflows
+
+```
+Workflow: GitHub Reader → Text Generator → Discord + Email
+1. Test GitHub Reader - Verify commits are read
+2. Test Text Generator - Verify reports are generated
+3. Test Discord Messenger - Verify messages are posted
+4. Test Gmail Sender - Verify emails are sent
+5. Test complete workflow - Verify all outputs are delivered
+```
+
+## Debugging Failed Tests
+
+### Agent Test Failures
+
+<Steps>
+  <Step title="Check Error Message">
+    Read the error message in the red box. It usually indicates the specific problem.
+  </Step>
+
+  <Step title="Verify API Keys">
+    - Ensure API keys are correct
+    - Check that keys have necessary permissions
+    - Verify keys haven't expired
+  </Step>
+
+  <Step title="Review Configuration">
+    - Check all required fields are filled
+    - Verify field references are correct
+    - Ensure model selection is appropriate
+  </Step>
+
+  <Step title="Test Simpler Version">
+    - Remove field references and use static text
+    - Simplify the prompt or configuration
+    - Test with minimal settings
+  </Step>
+</Steps>
+
+### Workflow Test Failures
+
+<Steps>
+  <Step title="Identify Failed Agent">
+    Check the error message to see which agent failed.
+  </Step>
+
+  <Step title="Test That Agent Individually">
+    Open the failed agent's configuration and test it in isolation.
+  </Step>
+
+  <Step title="Check Data Flow">
+    Verify the agent is receiving expected input from previous agents.
+  </Step>
+
+  <Step title="Verify Connections">
+    Ensure all connections are properly established and pointing to the right agents.
+  </Step>
+
+  <Step title="Test Incrementally">
+    Test partial workflows (first 2 agents, then 3, etc.) to isolate the issue.
+  </Step>
+</Steps>
+
+## Testing with Different Data
+
+### Using Sample Data
+
+For agents that receive input:
+
+- Start with simple, predictable input
+- Test with minimal data first
+- Gradually increase complexity
+- Test edge cases (empty data, special characters, etc.)
+
+### Testing External Services
+
+**Gmail Agents**:
+- Use a test Gmail account
+- Send test emails to yourself
+- Check spam/trash folders
+
+**Discord Agents**:
+- Create a test Discord server
+- Use a dedicated test channel
+- Monitor for rate limits
+
+**GitHub Agents**:
+- Use a test repository
+- Create test commits
+- Verify webhook configurations
+
+## Performance Testing
+
+### Measuring Execution Time
+
+Track how long your workflow takes:
+
+1. Note the start time when clicking "Test Workflow"
+2. Note the end time when receiving success message
+3. Calculate total execution time
+4. Identify slow agents
+
+<Tip>
+Most workflows should complete in under 30 seconds. If yours takes longer, consider optimizing agent configurations or splitting into multiple workflows.
+</Tip>
+
+### Optimization Tips
+
+- Use faster AI models for simple tasks
+- Minimize unnecessary text processing
+- Reduce the number of API calls
+- Cache results when possible
+- Test during off-peak hours to avoid rate limits
+
+## Next Steps
+
+- Explore [common workflow patterns](/guides/common-patterns) for proven designs
+- Learn about [creating workflows](/guides/creating-workflows) from scratch
+- Review [connecting agents](/guides/connecting-agents) for advanced data flow

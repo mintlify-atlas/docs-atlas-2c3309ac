@@ -1,0 +1,311 @@
+---
+title: Workflows
+description: Learn how workflows orchestrate automation in Agility by connecting agents in a directed execution graph
+---
+
+## What is a Workflow?
+
+A workflow in Agility is a visual automation that connects multiple agents together to perform complex tasks. Think of it as a flowchart where each node is an agent that processes data, and the connections define how data flows between them.
+
+## Workflow Structure
+
+Every workflow consists of three core components:
+
+### 1. Elements
+
+Elements are the individual nodes in your workflow. Each element represents an agent instance with specific configuration.
+
+```typescript
+interface WorkflowElement {
+  id: string;              // Unique identifier
+  type: 'agent';           // Currently only 'agent' type is supported
+  agentId: string;         // Reference to the agent definition
+  position: Position;      // Visual position on canvas
+  data: {
+    name: string;          // Display name (e.g., "Text Generator")
+    description: string;   // Agent description
+    color?: string;        // Visual styling
+    icon?: string;         // Icon identifier
+  };
+}
+```
+
+### 2. Connections
+
+Connections define the flow of data between elements, creating a directed graph of execution.
+
+```typescript
+interface Connection {
+  id: string;         // Unique connection identifier
+  sourceId: string;   // ID of the source element
+  targetId: string;   // ID of the target element
+  type: string;       // Connection type
+  data?: any;         // Optional connection metadata
+}
+```
+
+<Note>
+Connections support one-to-many relationships. A single agent can send its output to multiple downstream agents.
+</Note>
+
+### 3. Workflow Definition
+
+The complete workflow brings elements and connections together:
+
+```typescript
+interface Workflow {
+  id: string;                    // Workflow UUID
+  name: string;                  // Workflow name
+  description?: string;          // Optional description
+  elements: WorkflowElement[];   // Array of agent nodes
+  connections: Connection[];     // Array of connections
+}
+```
+
+## Execution Model
+
+Workflows execute using a **breadth-first traversal** algorithm:
+
+### Execution Flow
+
+1. **Starting Point**: Execution begins from a specified element (the trigger agent)
+2. **Queue Processing**: Elements are added to a processing queue
+3. **Sequential Execution**: Each agent executes in order, one at a time
+4. **Context Building**: Each agent's output is stored in a shared context
+5. **Data Propagation**: Downstream agents access outputs via placeholders
+6. **Cycle Prevention**: Already-processed elements are skipped to avoid infinite loops
+
+```typescript
+// Execution pseudocode from run-workflow/index.ts
+const queue = [startElementId];
+const processed = new Set();
+const outputContext = {};
+
+while (queue.length > 0) {
+  const currentElementId = queue.shift();
+  
+  // Skip if already processed (cycle prevention)
+  if (processed.has(currentElementId)) continue;
+  processed.add(currentElementId);
+  
+  // Execute the agent
+  const result = await executeAgent(currentElementId);
+  
+  // Store output in context
+  outputContext[currentElementId] = result;
+  
+  // Queue connected elements
+  const nextElements = connectionMap.get(currentElementId);
+  queue.push(...nextElements);
+}
+```
+
+### Output Context
+
+The output context is a key-value store that accumulates data as the workflow executes:
+
+```typescript
+{
+  // Element-specific outputs
+  "element-123": { text: "Generated content" },
+  
+  // Shared input namespace for easy access
+  "input": {
+    "text": "Generated content",
+    "emailBody": "Email content",
+    "emailSubject": "Subject line"
+  }
+}
+```
+
+<Tip>
+The `input` namespace provides simplified access to outputs. For example, a Text Generator stores its output at both `outputContext[elementId]` and `outputContext.input.text` for convenience.
+</Tip>
+
+## Data Flow Between Agents
+
+Agents communicate through **placeholder resolution**:
+
+### Placeholder Syntax
+
+Use `{{input.fieldName}}` to reference outputs from previous agents:
+
+```typescript
+// Agent configuration with placeholders
+{
+  prompt: "Summarize this email: {{input.emailBody}}",
+  subject: "Re: {{input.emailSubject}}"
+}
+```
+
+### Resolution Process
+
+Placeholders are resolved at execution time:
+
+1. **Pattern Matching**: The system finds all `{{input.*}}` patterns
+2. **Path Resolution**: Extracts the field path (e.g., `input.emailBody`)
+3. **Value Lookup**: Retrieves the value from the output context
+4. **Substitution**: Replaces the placeholder with the actual value
+
+```typescript
+// From run-workflow/index.ts:9
+function resolvePlaceholders(text: string, context: object): string {
+  return text.replace(/{{input\.(.*?)}}/g, (match, path) => {
+    const fullPath = `input.${path}`;
+    const value = getValueByPath(context, fullPath);
+    return typeof value === 'string' ? value : JSON.stringify(value);
+  });
+}
+```
+
+<Warning>
+Placeholders must reference fields that exist in the output context. Missing fields resolve to empty strings, which may cause unexpected behavior.
+</Warning>
+
+## Workflow Lifecycle
+
+### 1. Creation
+
+Workflows start empty and agents are added via the visual builder:
+
+```typescript
+const emptyWorkflow: Workflow = {
+  id: 'workflow-1',
+  name: 'New Workflow',
+  elements: [],
+  connections: []
+};
+```
+
+### 2. Configuration
+
+Each agent element is configured with specific settings stored in the `agent_configs` table:
+
+- Agent type (text_generator, gmail_reader, etc.)
+- Element ID (unique instance identifier)
+- Configuration object (API keys, prompts, etc.)
+
+### 3. Execution
+
+Workflows execute via the `run-workflow` function:
+
+```typescript
+// POST /functions/v1/run-workflow
+{
+  startElementId: "element-uuid"  // Which agent to start from
+}
+```
+
+### 4. Result Collection
+
+Execution returns an array of results for each agent:
+
+```typescript
+{
+  success: true,
+  results: [
+    { elementId: "element-1", result: { text: "..." } },
+    { elementId: "element-2", result: { success: true } }
+  ]
+}
+```
+
+## Best Practices
+
+<Accordion title="Design Linear Workflows First">
+Start with simple linear chains (A → B → C) before creating complex branching workflows. This makes debugging easier.
+</Accordion>
+
+<Accordion title="Use Descriptive Element Names">
+Rename elements to describe their purpose (e.g., "Email Summarizer" instead of "Text Generator").
+</Accordion>
+
+<Accordion title="Test Agent Configurations Individually">
+Verify each agent works correctly before connecting them in a workflow.
+</Accordion>
+
+<Accordion title="Monitor Output Context">
+Understand what data each agent produces to write effective placeholders in downstream agents.
+</Accordion>
+
+<Accordion title="Avoid Circular Dependencies">
+While the execution engine prevents infinite loops, circular connections can cause unexpected behavior.
+</Accordion>
+
+## Common Patterns
+
+### Trigger → Process → Action
+
+The most common workflow pattern:
+
+```
+Gmail Reader → Text Generator → Gmail Sender
+   (trigger)    (process)         (action)
+```
+
+1. **Trigger**: Reads incoming data (email, GitHub push, etc.)
+2. **Process**: Transforms or analyzes the data (summarize, generate response)
+3. **Action**: Sends the result somewhere (email, Discord, etc.)
+
+### Fan-Out Pattern
+
+One agent sends output to multiple downstream agents:
+
+```
+           → Discord Messenger
+Text Gen  → Gmail Sender
+           → Slack Notifier
+```
+
+### Sequential Processing
+
+Multiple processing steps in series:
+
+```
+Gmail Reader → Extractor → Classifier → Responder → Gmail Sender
+```
+
+## Technical Details
+
+### Storage
+
+Workflows are stored in the `user_workflows` table:
+
+- `id`: Workflow UUID
+- `user_id`: Owner's user ID
+- `data`: JSON object containing elements and connections
+- `created_at`, `updated_at`: Timestamps
+
+### Element ID Format
+
+Element IDs typically include the workflow UUID: `{workflow-uuid}-{element-identifier}`
+
+This allows the execution engine to determine which workflow an element belongs to.
+
+### Connection Map
+
+During execution, connections are transformed into a lookup map:
+
+```typescript
+// From run-workflow/index.ts:285
+const connectionMap = new Map<string, string[]>();
+for (const connection of connections) {
+  if (!connectionMap.has(connection.sourceId)) {
+    connectionMap.set(connection.sourceId, []);
+  }
+  connectionMap.get(connection.sourceId).push(connection.targetId);
+}
+```
+
+This enables O(1) lookup of downstream elements during traversal.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Learn about the different agent types and how to configure them
+  </Card>
+  <Card title="Connections" icon="link" href="/concepts/connections">
+    Deep dive into how agents connect and share data
+  </Card>
+</CardGroup>

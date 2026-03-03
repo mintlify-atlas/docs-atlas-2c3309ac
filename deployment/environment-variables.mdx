@@ -1,0 +1,380 @@
+---
+title: Environment Variables
+description: Complete reference for all environment variables required to deploy Agility
+---
+
+Agility requires several environment variables to be configured for both the Next.js application and Supabase edge functions.
+
+## Required Variables
+
+These environment variables are **required** for Agility to function:
+
+### Frontend (Next.js)
+
+Set these variables in your deployment platform (Vercel, Netlify, etc.) or in `.env.local` for local development.
+
+#### `NEXT_PUBLIC_SUPABASE_URL`
+
+**Type:** Public  
+**Required:** Yes
+
+The URL of your Supabase project.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+```
+
+**Where to find it:**
+1. Go to your Supabase project dashboard
+2. Navigate to Settings → API
+3. Copy the "Project URL"
+
+---
+
+#### `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+**Type:** Public  
+**Required:** Yes
+
+The anonymous (public) API key for your Supabase project.
+
+```bash
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Where to find it:**
+1. Go to your Supabase project dashboard
+2. Navigate to Settings → API
+3. Copy the "anon public" key
+
+<Warning>
+  The anon key is safe to expose in client-side code. However, ensure Row Level Security (RLS) is properly configured in your database.
+</Warning>
+
+---
+
+#### `NEXT_PUBLIC_ENCRYPTION_KEY`
+
+**Type:** Public (but should be secret)  
+**Required:** Yes
+
+Encryption key used to protect sensitive data like API keys and OAuth tokens stored in the database.
+
+```bash
+NEXT_PUBLIC_ENCRYPTION_KEY=your-secure-random-encryption-key-here
+```
+
+<Warning>
+  **Critical Security Requirement:**
+  - Generate a strong, random key for production
+  - **NEVER** use the default key (`default-encryption-key`)
+  - Use the same key for both frontend and backend
+  - Keep this key secret and secure
+</Warning>
+
+**Generate a secure key:**
+```bash
+# Using OpenSSL
+openssl rand -base64 32
+
+# Using Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### Backend (Supabase Edge Functions)
+
+Set these variables in your Supabase project using the dashboard or CLI.
+
+#### `SUPABASE_URL`
+
+**Type:** Secret  
+**Required:** Yes (auto-configured)
+
+Automatically provided by Supabase edge function runtime. Same value as `NEXT_PUBLIC_SUPABASE_URL`.
+
+---
+
+#### `SUPABASE_ANON_KEY`
+
+**Type:** Secret  
+**Required:** Yes (auto-configured)
+
+Automatically provided by Supabase edge function runtime. Same value as `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+---
+
+#### `ENCRYPTION_KEY`
+
+**Type:** Secret  
+**Required:** Yes
+
+Server-side encryption key for protecting sensitive data. Must match `NEXT_PUBLIC_ENCRYPTION_KEY`.
+
+```bash
+ENCRYPTION_KEY=your-secure-random-encryption-key-here
+```
+
+**Set via Supabase CLI:**
+```bash
+supabase secrets set ENCRYPTION_KEY=your-secure-random-encryption-key-here
+```
+
+**Set via Supabase Dashboard:**
+1. Go to Edge Functions → Manage secrets
+2. Add `ENCRYPTION_KEY` with your secure key
+
+---
+
+#### `GOOGLE_CLIENT_ID`
+
+**Type:** Secret  
+**Required:** Yes (for Gmail integration)
+
+Google OAuth2 client ID for Gmail authentication.
+
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+```
+
+**How to obtain:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing
+3. Enable Gmail API
+4. Navigate to APIs & Services → Credentials
+5. Create OAuth 2.0 Client ID
+6. Set application type to "Web application"
+7. Copy the Client ID
+
+---
+
+#### `GOOGLE_CLIENT_SECRET`
+
+**Type:** Secret  
+**Required:** Yes (for Gmail integration)
+
+Google OAuth2 client secret for Gmail authentication.
+
+```bash
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+**How to obtain:**
+- Available when creating OAuth 2.0 Client ID in Google Cloud Console
+- Can be viewed later in the credentials settings
+
+<Warning>
+  Keep the client secret secure. Never commit it to version control or expose it in client-side code.
+</Warning>
+
+---
+
+#### `GMAIL_OAUTH_REDIRECT_URI`
+
+**Type:** Secret  
+**Required:** Yes (for Gmail integration)
+
+The callback URL where Google redirects users after OAuth authorization.
+
+```bash
+# For production
+GMAIL_OAUTH_REDIRECT_URI=https://yourdomain.com/gmail-oauth-callback
+
+# For local development
+GMAIL_OAUTH_REDIRECT_URI=http://localhost:3000/gmail-oauth-callback
+```
+
+**Configuration steps:**
+1. In Google Cloud Console → Credentials
+2. Edit your OAuth 2.0 Client ID
+3. Add the redirect URI to "Authorized redirect URIs"
+4. Set the same URI in your Supabase secrets
+
+<Warning>
+  The redirect URI must **exactly** match what's configured in Google Cloud Console, including the protocol (http/https) and path.
+</Warning>
+
+## Setting Environment Variables
+
+### Local Development
+
+Create a `.env.local` file in the project root:
+
+```bash .env.local
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Encryption Key
+NEXT_PUBLIC_ENCRYPTION_KEY=your-secure-encryption-key
+```
+
+<Warning>
+  Never commit `.env.local` to version control. Add it to `.gitignore`.
+</Warning>
+
+### Vercel Deployment
+
+#### Via Vercel Dashboard
+
+<Steps>
+  <Step title="Open project settings">
+    Navigate to your project in Vercel dashboard → Settings → Environment Variables
+  </Step>
+  
+  <Step title="Add variables">
+    Add each environment variable:
+    - **Name:** Variable name (e.g., `NEXT_PUBLIC_SUPABASE_URL`)
+    - **Value:** Variable value
+    - **Environment:** Select Production, Preview, and/or Development
+  </Step>
+  
+  <Step title="Redeploy">
+    Trigger a new deployment for changes to take effect.
+  </Step>
+</Steps>
+
+#### Via Vercel CLI
+
+```bash
+# Add a single variable
+vercel env add NEXT_PUBLIC_SUPABASE_URL production
+
+# Pull environment variables to local .env file
+vercel env pull .env.local
+```
+
+### Supabase Edge Functions
+
+#### Via Supabase Dashboard
+
+<Steps>
+  <Step title="Navigate to edge functions">
+    Go to your Supabase project → Edge Functions
+  </Step>
+  
+  <Step title="Manage secrets">
+    Click "Manage secrets" or "Environment variables"
+  </Step>
+  
+  <Step title="Add secrets">
+    Add each secret with its name and value:
+    - `ENCRYPTION_KEY`
+    - `GOOGLE_CLIENT_ID`
+    - `GOOGLE_CLIENT_SECRET`
+    - `GMAIL_OAUTH_REDIRECT_URI`
+  </Step>
+</Steps>
+
+#### Via Supabase CLI
+
+```bash
+# Set a single secret
+supabase secrets set ENCRYPTION_KEY=your-key
+
+# Set multiple secrets from .env file
+supabase secrets set --env-file ./supabase/.env.local
+
+# List all secrets
+supabase secrets list
+```
+
+## Optional Variables
+
+These variables are optional but recommended for specific features:
+
+### API Keys for Agent Testing
+
+You can optionally set API keys as environment variables for testing purposes, though users typically provide their own keys:
+
+- **OpenAI API Key** - For Text Generator agent
+- **GitHub Personal Access Token** - For GitHub Reader agent  
+- **Discord Webhook URL** - For Discord Messenger agent
+
+These are typically configured per-user within the application, not as environment variables.
+
+## Validation
+
+Verify your environment variables are configured correctly:
+
+### Frontend Validation
+
+Create a test page or add to an existing page:
+
+```typescript
+console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+console.log('Has Anon Key:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+console.log('Has Encryption Key:', !!process.env.NEXT_PUBLIC_ENCRYPTION_KEY)
+```
+
+### Backend Validation
+
+Check Supabase edge function logs after deployment:
+
+```bash
+# View logs for a specific function
+supabase functions logs generate-text
+
+# Follow logs in real-time
+supabase functions logs generate-text --follow
+```
+
+## Security Best Practices
+
+<Warning>
+  **Critical Security Guidelines:**
+  
+  1. Never commit environment variables to version control
+  2. Use different keys for development and production
+  3. Rotate secrets regularly (especially after team member changes)
+  4. Use strong, randomly generated encryption keys
+  5. Limit access to production environment variables
+  6. Enable audit logging for secret access
+</Warning>
+
+### Environment Variable Checklist
+
+✅ All required variables are set  
+✅ Encryption keys match between frontend and backend  
+✅ Google OAuth credentials are correctly configured  
+✅ Redirect URIs match between Google Cloud Console and environment variables  
+✅ Production uses different keys than development  
+✅ Secrets are not committed to version control  
+✅ Team members have access only to necessary environments  
+
+## Troubleshooting
+
+### "Authorization header is required" Error
+
+**Cause:** Supabase credentials not configured correctly.
+
+**Solution:** Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set correctly.
+
+### "Failed to decrypt API key" Error
+
+**Cause:** Encryption key mismatch between frontend and backend.
+
+**Solution:** Ensure `NEXT_PUBLIC_ENCRYPTION_KEY` (frontend) matches `ENCRYPTION_KEY` (backend).
+
+### Gmail OAuth Fails
+
+**Cause:** Google OAuth credentials or redirect URI misconfigured.
+
+**Solution:**
+1. Verify `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GMAIL_OAUTH_REDIRECT_URI` are set
+2. Check that redirect URI exactly matches Google Cloud Console configuration
+3. Ensure Gmail API is enabled in Google Cloud Console
+
+### Edge Function Can't Access Secrets
+
+**Cause:** Secrets not deployed or function needs redeployment.
+
+**Solution:**
+```bash
+# Redeploy functions after setting secrets
+supabase functions deploy
+```
+
+## Next Steps
+
+- [Deployment Overview](/deployment/overview) - General deployment guide
+- [Supabase Setup](/deployment/supabase-setup) - Configure Supabase backend

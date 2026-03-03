@@ -1,0 +1,204 @@
+---
+title: 'Read Gmail'
+description: 'Fetch emails from Gmail using OAuth2 authentication'
+---
+
+## POST /functions/v1/read-gmail
+
+Reads emails from a Gmail account using OAuth2 credentials. Searches for messages from a specific sender and optionally filters for unread messages.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="elementId" type="string" required>
+  The workflow element ID used to load Gmail OAuth credentials from the database.
+</ParamField>
+
+<ParamField body="fromEmail" type="string" required>
+  The sender email address to filter messages by. Only messages from this sender will be returned.
+</ParamField>
+
+<ParamField body="maxResults" type="number" default="10">
+  Maximum number of messages to return. Defaults to 10.
+</ParamField>
+
+<ParamField body="onlyUnread" type="boolean" default="true">
+  If `true`, only returns unread messages. If `false`, returns all messages from the sender. Defaults to `true`.
+</ParamField>
+
+## Response
+
+<ResponseField name="messages" type="array">
+  Array of email message objects
+  
+  <ResponseField name="id" type="string">
+    Gmail message ID
+  </ResponseField>
+  
+  <ResponseField name="threadId" type="string">
+    Gmail thread ID
+  </ResponseField>
+  
+  <ResponseField name="labelIds" type="array">
+    Array of label IDs applied to the message (e.g., `["UNREAD", "INBOX"]`)
+  </ResponseField>
+  
+  <ResponseField name="snippet" type="string">
+    Short preview of the message content
+  </ResponseField>
+  
+  <ResponseField name="from" type="string">
+    Sender email address and name
+  </ResponseField>
+  
+  <ResponseField name="to" type="string">
+    Recipient email address
+  </ResponseField>
+  
+  <ResponseField name="subject" type="string">
+    Email subject line
+  </ResponseField>
+  
+  <ResponseField name="date" type="string">
+    Date and time the email was sent
+  </ResponseField>
+  
+  <ResponseField name="body" type="string">
+    Full text body of the email (plain text version)
+  </ResponseField>
+</ResponseField>
+
+## Gmail OAuth Flow
+
+This endpoint uses OAuth2 credentials stored in the `user_gmail_credentials` table:
+
+1. **Retrieves Encrypted Credentials**: Client ID, Client Secret, and Refresh Token
+2. **Decrypts Credentials**: Using XOR encryption with `ENCRYPTION_KEY`
+3. **Obtains Access Token**: Exchanges refresh token for access token with Google OAuth
+4. **Searches Messages**: Uses Gmail API to search for messages matching criteria
+5. **Fetches Message Details**: Retrieves full message content including headers and body
+
+### Gmail API Endpoints Used
+
+- Token refresh: `https://oauth2.googleapis.com/token`
+- Message search: `https://gmail.googleapis.com/gmail/v1/users/me/messages`
+- Message details: `https://gmail.googleapis.com/gmail/v1/users/me/messages/{id}`
+
+## Search Query
+
+The function builds a Gmail search query:
+
+```
+from:{fromEmail} is:unread
+```
+
+When `onlyUnread` is `false`:
+
+```
+from:{fromEmail}
+```
+
+## Examples
+
+### Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/read-gmail \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "gmail-reader-123",
+    "fromEmail": "notifications@example.com",
+    "maxResults": 5,
+    "onlyUnread": true
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "messages": [
+    {
+      "id": "18c5a2b3f9d1e4a6",
+      "threadId": "18c5a2b3f9d1e4a6",
+      "labelIds": ["UNREAD", "INBOX"],
+      "snippet": "Your order has been shipped...",
+      "from": "notifications@example.com",
+      "to": "user@domain.com",
+      "subject": "Order Shipped - #12345",
+      "date": "Mon, 3 Mar 2026 10:30:00 -0800",
+      "body": "Hello,\n\nYour order #12345 has been shipped and is on its way.\n\nTracking number: 1Z999AA10123456784\n\nThank you for your order!"
+    }
+  ]
+}
+```
+
+### Empty Response
+
+```json
+{
+  "messages": []
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Failed to read emails: Invalid grant"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Element ID is required` | Missing elementId parameter |
+| 400 | `Sender email address is required` | Missing fromEmail parameter |
+| 400 | `Invalid Gmail credentials` | Credentials are incomplete or corrupted |
+| 404 | `No Gmail credentials found for this user` | User hasn't connected Gmail |
+| 500 | `Failed to retrieve Gmail credentials` | Database error |
+| 500 | `Failed to read emails` | Gmail API error or network issue |
+
+## Message Body Extraction
+
+The function handles different email formats:
+
+- **Multipart messages**: Extracts the `text/plain` part
+- **Simple messages**: Extracts body directly from payload
+- **Base64 decoding**: Decodes Gmail's URL-safe base64 encoding
+
+## OAuth Token Refresh
+
+Access tokens are obtained fresh on each request by exchanging the refresh token:
+
+```javascript
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id={CLIENT_ID}
+&client_secret={CLIENT_SECRET}
+&refresh_token={REFRESH_TOKEN}
+&grant_type=refresh_token
+```
+
+## Notes
+
+- Credentials are retrieved from `user_gmail_credentials` table (centralized storage)
+- Agent-specific configuration in `agent_configs` is optional
+- Messages are returned in the order provided by Gmail API
+- Maximum of `maxResults` messages will be processed
+- Only `text/plain` message parts are extracted; HTML parts are ignored
+- Labels like `UNREAD`, `INBOX`, `SENT` are included in response

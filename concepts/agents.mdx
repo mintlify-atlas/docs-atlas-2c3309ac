@@ -1,0 +1,470 @@
+---
+title: Agents
+description: Understand the building blocks of Agility workflows - agents that read data, process information, and take actions
+---
+
+## What is an Agent?
+
+An agent is a self-contained unit of functionality in Agility. Each agent has a specific purpose: reading data from a source, processing information, or taking an action. Agents are the nodes in your workflow graph.
+
+## Agent Structure
+
+### Core Definition
+
+Every agent is defined with these properties:
+
+```typescript
+interface Agent {
+  id: string;              // Unique agent type identifier
+  name: string;            // Display name (e.g., "Gmail Reader")
+  description: string;     // What the agent does
+  color?: string;          // Background color for visual distinction
+  icon?: string;           // Icon identifier
+}
+```
+
+### Agent Instance
+
+When you add an agent to a workflow, it becomes a `WorkflowElement`:
+
+```typescript
+interface WorkflowElement {
+  id: string;              // Unique instance ID
+  type: 'agent';
+  agentId: string;         // References the agent definition
+  position: Position;      // Canvas position
+  data: {                  // Copied from agent definition
+    name: string;
+    description: string;
+    color?: string;
+    icon?: string;
+  };
+}
+```
+
+<Note>
+Multiple instances of the same agent can exist in a workflow. Each instance has its own configuration and element ID.
+</Note>
+
+## Available Agents
+
+Agility provides five built-in agents (from `agents.ts:1`):
+
+### Text Generator
+
+**Purpose**: Generate text using AI language models
+
+```typescript
+{
+  id: '1',
+  name: 'Text Generator',
+  description: 'Generates text based on prompts',
+  color: '#f0f9ff'
+}
+```
+
+**Configuration**:
+- `prompt`: The text generation prompt (supports placeholders)
+- `model`: AI model to use (e.g., "gpt-4", "gpt-3.5-turbo")
+- `apiKey`: OpenAI API key
+- `provider`: AI provider (default: "openai")
+
+**Output**:
+```typescript
+{
+  text: string;  // Generated content
+}
+```
+
+**Common Use Cases**:
+- Summarizing emails
+- Generating responses
+- Content transformation
+- Data extraction
+
+### Gmail Reader
+
+**Purpose**: Read emails from a Gmail account
+
+```typescript
+{
+  id: '3',
+  name: 'Gmail Reader',
+  description: 'Reads emails from specific senders in Gmail',
+  color: '#ecfdf5'
+}
+```
+
+**Configuration**:
+- `fromEmail`: Filter by sender email address
+- `maxResults`: Maximum number of emails to retrieve
+- `onlyUnread`: Whether to only fetch unread emails
+
+**Output**:
+```typescript
+{
+  messages: Array<{
+    from: string;
+    to: string;
+    subject: string;
+    body: string;
+    date: string;
+  }>;
+}
+```
+
+**Convenience Fields** (stored in `outputContext.input`):
+- `emailBody`: Body of the first email
+- `emailSubject`: Subject of the first email
+- `emailFrom`: Sender of the first email
+- `emailTo`: Recipient of the first email
+- `emailDate`: Date of the first email
+- `email`: Formatted email string (From/To/Subject/Date/Body)
+
+### Gmail Sender
+
+**Purpose**: Send emails through Gmail
+
+```typescript
+{
+  id: '2',
+  name: 'Gmail Sender',
+  description: 'Sends emails through Gmail',
+  color: '#fff7ed'
+}
+```
+
+**Configuration**:
+- `to`: Recipient email address (supports placeholders)
+- `subject`: Email subject line (supports placeholders)
+- `body`: Email body content (supports placeholders)
+
+**Output**:
+```typescript
+{
+  success: boolean;
+  messageId?: string;  // Gmail message ID if successful
+  error?: string;      // Error message if failed
+}
+```
+
+### Discord Messenger
+
+**Purpose**: Send messages to Discord servers via webhooks
+
+```typescript
+{
+  id: '4',
+  name: 'Discord Messenger',
+  description: 'Sends messages to Discord servers via webhooks',
+  color: '#eef2ff'
+}
+```
+
+**Configuration**:
+- `webhookUrl`: Discord webhook URL
+- `content` or `messageContent`: Message text (supports placeholders)
+- `username`: Custom bot username (optional)
+- `avatarUrl`: Custom bot avatar URL (optional)
+
+**Output**:
+```typescript
+{
+  success: boolean;
+  messageId?: string;  // Discord message ID if successful
+  error?: string;      // Error message if failed
+}
+```
+
+### GitHub Reader
+
+**Purpose**: Read push changes from a GitHub repository
+
+```typescript
+{
+  id: '5',
+  name: 'GitHub Reader',
+  description: 'Reads push changes from a GitHub repository',
+  color: '#f8f0fc'
+}
+```
+
+**Configuration**:
+- `accessToken`: GitHub personal access token
+- `repository`: Repository in format "owner/repo"
+- `branch`: Branch to monitor (default: "main")
+
+**Output**:
+```typescript
+{
+  repoName: string;
+  branch: string;
+  commits: Array<CommitInfo>;
+  summary: string;
+  pusher?: string;
+}
+```
+
+**Convenience Fields** (stored in `outputContext.input`):
+- `repoName`: Repository name
+- `branch`: Branch name
+- `commits`: Array of commit objects
+- `summary`: Summary of changes
+- `pusher`: User who pushed the changes
+
+## Agent Categories
+
+Agents fall into three functional categories:
+
+### 1. Input Agents (Triggers)
+
+Read data from external sources:
+- **Gmail Reader**: Fetches emails
+- **GitHub Reader**: Monitors repository changes
+
+<Tip>
+Input agents are typically the first agent in a workflow, though they can appear anywhere in the execution graph.
+</Tip>
+
+### 2. Processing Agents
+
+Transform or analyze data:
+- **Text Generator**: Uses AI to process text
+
+### 3. Output Agents (Actions)
+
+Send data to external services:
+- **Gmail Sender**: Sends emails
+- **Discord Messenger**: Posts to Discord
+
+## Agent Configuration
+
+### Configuration Storage
+
+Each agent instance stores its configuration in the `agent_configs` table:
+
+```typescript
+{
+  user_id: string;        // Owner of the configuration
+  element_id: string;     // Workflow element instance ID
+  agent_type: string;     // Agent type (e.g., "text_generator")
+  config: object;         // Agent-specific configuration
+}
+```
+
+### Agent Type Naming
+
+Agent types use snake_case derived from the display name:
+
+```typescript
+// From run-workflow/index.ts:343
+const agentType = element.data.name
+  .toLowerCase()
+  .replace(/\s+/g, '_');
+
+// Examples:
+// "Text Generator" → "text_generator"
+// "Gmail Reader" → "gmail_reader"
+```
+
+### Configuration Retrieval
+
+During execution, the workflow engine fetches configuration:
+
+```typescript
+// From run-workflow/index.ts:348
+const { data: config } = await supabaseClient
+  .from('agent_configs')
+  .select('config')
+  .eq('element_id', elementId)
+  .eq('user_id', userId)
+  .eq('agent_type', agentType)
+  .maybeSingle();
+```
+
+<Warning>
+If an agent is not configured, the workflow execution will fail with "Agent not configured" error (run-workflow/index.ts:368).
+</Warning>
+
+## Agent Execution
+
+### Execution Process
+
+1. **Configuration Loading**: Fetch agent configuration from database
+2. **Placeholder Resolution**: Replace `{{input.*}}` patterns with actual values
+3. **Agent Execution**: Call the agent's cloud function
+4. **Context Storage**: Store output in the workflow context
+5. **Error Handling**: Capture and store any errors
+
+### Example: Text Generator Execution
+
+From `run-workflow/index.ts:384`:
+
+```typescript
+if (agentType === 'text_generator') {
+  // Resolve placeholders in configuration
+  const processedConfig = resolvePlaceholdersInObject(
+    config.config, 
+    outputContext
+  );
+  
+  // Call the generate-text function
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/generate-text`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify({
+        elementId: currentElementId,
+        prompt: processedConfig.prompt,
+        model: processedConfig.model,
+        apiKey: processedConfig.apiKey,
+        provider: processedConfig.provider || 'openai'
+      })
+    }
+  );
+  
+  const result = await response.json();
+  
+  // Store in context
+  outputContext[currentElementId] = result;
+  outputContext.input.text = result.text;
+}
+```
+
+### Context Storage Strategy
+
+Each agent stores output in two places:
+
+1. **Element-specific**: `outputContext[elementId]` - Full output object
+2. **Input namespace**: `outputContext.input.*` - Convenience fields
+
+This dual storage enables:
+- **Explicit references**: `{{input.text}}` (simple)
+- **Element-specific references**: Could reference specific element outputs (advanced)
+
+## Output Structures
+
+Agents define their output structure for type safety:
+
+```typescript
+interface AgentOutputStructure {
+  type: string;                    // Agent type identifier
+  fields: AgentOutputField[];      // Output fields
+  description?: string;            // Structure description
+}
+
+interface AgentOutputField {
+  name: string;                    // Field name
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;            // Field purpose
+  required?: boolean;              // Whether field is always present
+}
+```
+
+These structures help document what data each agent produces and enable potential future features like:
+- Auto-completion for placeholders
+- Type checking in configurations
+- Visual data flow indicators
+
+## Best Practices
+
+<Accordion title="Configure Agents Before Connecting">
+Set up and test each agent's configuration before adding connections. This prevents workflow execution errors.
+</Accordion>
+
+<Accordion title="Use Descriptive Configuration Values">
+When possible, use clear, self-documenting values in your configuration. For example:
+
+```typescript
+{
+  prompt: "Summarize this email in 2 sentences: {{input.emailBody}}",
+  // Better than: "Summarize: {{input.emailBody}}"
+}
+```
+</Accordion>
+
+<Accordion title="Store Sensitive Data Securely">
+API keys and tokens are stored in the database. Never hardcode them in your application code.
+</Accordion>
+
+<Accordion title="Test with Sample Data First">
+Use test recipient emails, sandbox Discord webhooks, and test repositories before running production workflows.
+</Accordion>
+
+<Accordion title="Monitor Agent Outputs">
+Check the execution results to understand what data each agent produces. This helps write better placeholder expressions.
+</Accordion>
+
+## Error Handling
+
+Agents handle errors gracefully:
+
+### Configuration Errors
+
+```typescript
+// Missing configuration
+{
+  error: 'Agent not configured'
+}
+
+// Invalid configuration
+{
+  error: 'Failed to fetch agent configuration',
+  details: string
+}
+```
+
+### Execution Errors
+
+```typescript
+// API call failures
+{
+  success: false,
+  error: 'Failed to generate text',
+  details: string
+}
+
+// Parse errors (from run-workflow/index.ts:449)
+{
+  error: 'Failed to parse response',
+  rawResponse: string
+}
+```
+
+Errors are stored in the output context, allowing downstream agents to handle them or the workflow to fail gracefully.
+
+## Advanced Topics
+
+### Custom Agent Development
+
+While not directly supported in the current version, the architecture allows for custom agents by:
+
+1. Adding agent definition to `agents.ts`
+2. Creating a Supabase Edge Function
+3. Adding execution logic to `run-workflow/index.ts`
+
+### Agent Reusability
+
+The same agent definition can be instantiated multiple times in a workflow:
+
+```
+Gmail Reader 1 (personal@email.com) → Text Generator → Gmail Sender
+Gmail Reader 2 (work@email.com)     → Text Generator → Gmail Sender
+```
+
+Each instance maintains separate configuration and output context.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflows" icon="diagram-project" href="/concepts/workflows">
+    Learn how agents connect together in workflows
+  </Card>
+  <Card title="Connections" icon="link" href="/concepts/connections">
+    Understand how data flows between agents
+  </Card>
+</CardGroup>

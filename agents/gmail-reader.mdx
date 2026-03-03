@@ -1,0 +1,194 @@
+---
+title: "Gmail Reader Agent"
+description: "Read and filter emails from your Gmail account"
+---
+
+The Gmail Reader agent allows you to read emails from your Gmail account based on specific criteria. It's perfect for monitoring inbox messages, filtering emails from specific senders, and extracting email data for processing in workflows.
+
+## Use Cases
+
+- Monitor emails from specific senders (customers, partners, systems)
+- Read unread messages for automated processing
+- Extract email content for analysis or summarization
+- Trigger workflows based on incoming emails
+- Create email-based automation and response systems
+
+## Configuration
+
+### Gmail Authorization
+
+The Gmail Reader uses OAuth 2.0 for secure authentication. Click the "Connect Gmail" button to authorize Agility to access your Gmail account.
+
+<Info>
+  Your Gmail credentials are never stored. Agility uses secure OAuth tokens that can be revoked at any time from your Google Account settings.
+</Info>
+
+### Email Filtering
+
+<ParamField path="fromEmail" type="string" required>
+  The email address of the sender to search for. Only emails from this address will be retrieved.
+  
+  **Example:** `notifications@github.com`, `support@company.com`
+</ParamField>
+
+<ParamField path="maxResults" type="number" default="5">
+  Maximum number of emails to retrieve. Range: 1-50
+  
+  **Default:** 5 emails
+</ParamField>
+
+<ParamField path="onlyUnread" type="boolean" default="true">
+  When enabled, only retrieves unread emails. When disabled, retrieves all emails matching other criteria.
+  
+  **Default:** true
+</ParamField>
+
+### Workflow Trigger
+
+<ParamField path="setAsTrigger" type="boolean" default="false">
+  When enabled, this agent becomes the workflow trigger. The workflow will automatically execute when new emails arrive from the specified sender.
+  
+  **Note:** Only one agent per workflow can be set as a trigger.
+</ParamField>
+
+## Output Structure
+
+The Gmail Reader provides comprehensive email data that can be used by subsequent agents.
+
+<ResponseField name="messages" type="array" required>
+  Array of email message objects retrieved from Gmail. Each message contains full email details.
+</ResponseField>
+
+<ResponseField name="emailBody" type="string" required>
+  Body content of the first email message in plain text format.
+</ResponseField>
+
+<ResponseField name="emailSubject" type="string" required>
+  Subject line of the first email message.
+</ResponseField>
+
+<ResponseField name="emailFrom" type="string" required>
+  Email address of the sender of the first message.
+</ResponseField>
+
+<ResponseField name="emailTo" type="string" required>
+  Email address of the recipient of the first message.
+</ResponseField>
+
+<ResponseField name="emailDate" type="string" required>
+  Date and time when the first email was sent (ISO 8601 format).
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  Formatted representation of the first email including all headers and body content.
+</ResponseField>
+
+### Example Output
+
+```json
+{
+  "messages": [
+    {
+      "id": "18c5f8a9b2d4e1f0",
+      "subject": "New order #12345",
+      "from": "orders@shop.com",
+      "to": "you@company.com",
+      "date": "2024-03-15T10:30:00Z",
+      "body": "Your order has been received...",
+      "snippet": "Your order has been received and is being processed."
+    }
+  ],
+  "emailBody": "Your order has been received and is being processed. Order details: ...",
+  "emailSubject": "New order #12345",
+  "emailFrom": "orders@shop.com",
+  "emailTo": "you@company.com",
+  "emailDate": "2024-03-15T10:30:00Z",
+  "email": "From: orders@shop.com\nTo: you@company.com\nSubject: New order #12345\n\nYour order has been received..."
+}
+```
+
+## Usage Examples
+
+### Customer Support Automation
+
+**Workflow:** Auto-respond to support emails
+
+1. **Gmail Reader**
+   - From Email: `support@yourcompany.com`
+   - Only Unread: true
+   - Max Results: 1
+   - Set as Trigger: true
+
+2. **Text Generator**
+   - Prompt: "Generate a professional support response for: {{emailBody}}"
+
+3. **Gmail Sender**
+   - To: `{{emailFrom}}`
+   - Subject: `Re: {{emailSubject}}`
+   - Body: `{{text}}`
+
+### Order Notification Monitor
+
+**Workflow:** Extract and log order information
+
+1. **Gmail Reader**
+   - From Email: `orders@shop.com`
+   - Only Unread: true
+   - Max Results: 10
+
+2. **Text Generator**
+   - Prompt: "Extract order number, customer name, and total amount from: {{emailBody}}"
+
+3. **Discord Messenger**
+   - Message: "New order received: {{text}}"
+
+### GitHub Digest
+
+**Workflow:** Daily summary of GitHub notifications
+
+1. **Gmail Reader**
+   - From Email: `notifications@github.com`
+   - Only Unread: false
+   - Max Results: 20
+
+2. **Text Generator**
+   - Prompt: "Summarize these GitHub notifications: {{messages}}"
+
+3. **Discord Messenger**
+   - Message: "Daily GitHub Digest:\n{{text}}"
+
+## Best Practices
+
+### Email Filtering
+
+- Use specific sender addresses rather than domains
+- Start with small `maxResults` values and increase as needed
+- Use "Only Unread" to avoid processing the same emails repeatedly
+
+### Performance
+
+- Avoid setting very high `maxResults` values (>20) as it increases processing time
+- Use workflow triggers for real-time email processing instead of polling
+
+### Security
+
+- Regularly review OAuth permissions in your Google Account
+- Only grant access to workflows that genuinely need email access
+- Revoke access when workflows are no longer needed
+
+## Error Handling
+
+Common errors and solutions:
+
+- **Gmail authorization required**: Click "Connect Gmail" to authorize access
+- **No emails found**: Verify the sender email address is correct and matching emails exist
+- **Rate limit exceeded**: Gmail API has usage limits; wait before retrying
+- **Invalid sender email**: Ensure the email address format is valid
+
+## Testing
+
+### Test Agent
+Immediately searches for and retrieves emails matching your criteria. Results are displayed in the configuration panel.
+
+### Test Workflow
+Runs the entire workflow to see how email data is processed by subsequent agents.

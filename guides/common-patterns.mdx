@@ -1,0 +1,452 @@
+---
+title: Common Workflow Patterns
+description: Discover proven workflow patterns and best practices for building effective AI agent automations
+---
+
+This guide presents common workflow patterns used in Agility. These patterns serve as building blocks for creating powerful automations.
+
+## Pattern Categories
+
+Workflow patterns fall into several categories:
+
+- **Sequential Processing** - Linear data transformations
+- **Content Processing** - Text generation and summarization
+- **Multi-Channel Distribution** - Sending to multiple destinations
+- **Data Aggregation** - Combining multiple sources
+- **Monitoring & Alerts** - Automated notifications
+
+## Sequential Processing Patterns
+
+### Read → Process → Send
+
+The most basic pattern for automated workflows.
+
+**Structure**:
+```
+Input Agent → Processing Agent → Output Agent
+```
+
+**Example: Email Summarizer**
+```
+Gmail Reader → Text Generator → Gmail Sender
+```
+
+**Use Case**: Read emails from a specific sender, generate summaries using AI, and send summaries to your inbox.
+
+**Configuration Tips**:
+- Gmail Reader: Filter by sender or subject
+- Text Generator: Prompt: "Summarize this email concisely: \{\{email.body\}\}"
+- Gmail Sender: Subject: "Summary: \{\{email.subject\}\}"
+
+<Tip>
+This pattern works for any input-process-output workflow. Swap agents to create different automations.
+</Tip>
+
+### Multi-Step Processing
+
+Chain multiple processing steps for complex transformations.
+
+**Structure**:
+```
+Input → Process 1 → Process 2 → Process 3 → Output
+```
+
+**Example: Content Refinement**
+```
+GitHub Reader → Text Generator (summarize) → Text Generator (format) → Discord Messenger
+```
+
+**Use Case**: Read code changes, summarize them, format as markdown, post to team Discord.
+
+**Configuration Tips**:
+- First Text Generator: Extract key changes
+- Second Text Generator: Format as bulleted list with emoji
+- Each step references output from previous step
+
+## Content Processing Patterns
+
+### Email Digest Creator
+
+Collect and summarize multiple emails into a single digest.
+
+**Structure**:
+```
+Gmail Reader → Text Generator → Gmail Sender
+```
+
+**Configuration**:
+- **Gmail Reader**: Read all unread emails from last 24 hours
+- **Text Generator**:
+  ```
+  Create a brief digest of these emails:
+  \{\{emails.list\}\}
+  
+  Format as:
+  - Sender
+  - Subject
+  - 1-sentence summary
+  ```
+- **Gmail Sender**: Send digest to your email
+
+**Best Practices**:
+- Schedule during off-hours
+- Group emails by sender or topic
+- Keep summaries concise (1-2 sentences each)
+
+### Code Change Announcer
+
+Monitor repositories and announce changes to your team.
+
+**Structure**:
+```
+GitHub Reader → Text Generator → Discord Messenger
+```
+
+**Configuration**:
+- **GitHub Reader**: Monitor specific repository for push events
+- **Text Generator**:
+  ```
+  New code changes in \{\{repo.name\}\}!
+  
+  Commits: \{\{commits.count\}\}
+  Author: \{\{commits.author\}\}
+  Summary: Create a brief, exciting announcement about these changes:
+  \{\{commits.messages\}\}
+  ```
+- **Discord Messenger**: Post to #engineering channel
+
+**Best Practices**:
+- Filter by branch (main/production only)
+- Include commit links
+- Use emoji for visual interest
+- Tag relevant team members
+
+## Multi-Channel Distribution
+
+### Fan-Out Pattern
+
+Send the same content to multiple destinations.
+
+**Structure**:
+```
+                    → Output Agent 1
+Input → Process    → Output Agent 2
+                    → Output Agent 3
+```
+
+**Example: Multi-Channel Announcements**
+```
+                        → Discord Messenger
+GitHub Reader → Text    → Gmail Sender
+                Generator → Slack Messenger
+```
+
+**Use Case**: When important code is pushed, notify all communication channels.
+
+**Configuration Tips**:
+- Create one processing agent that generates the message
+- Connect that agent to multiple output agents
+- Customize format for each channel (Discord uses markdown differently than email)
+
+<Note>
+All output agents receive the same processed data. The workflow runs all branches in parallel.
+</Note>
+
+### Conditional Distribution
+
+Route content to different destinations based on conditions.
+
+**Structure**:
+```
+            → Process 1 → Output 1 (urgent)
+Input →    |
+            → Process 2 → Output 2 (normal)
+```
+
+**Example: Priority-Based Routing**
+```
+Gmail Reader → Text Generator (analyze priority) → Discord (high priority)
+                                                  → Email (normal priority)
+```
+
+**Configuration**:
+- Text Generator analyzes email content for urgency
+- High-priority items go to Discord for immediate attention
+- Normal items go to email digest
+
+## Data Aggregation Patterns
+
+### Fan-In Pattern
+
+Combine data from multiple sources into one output.
+
+**Structure**:
+```
+Input Agent 1 →
+Input Agent 2 → Processing Agent → Output Agent
+Input Agent 3 →
+```
+
+**Example: Multi-Source Report**
+```
+GitHub Reader →
+Gmail Reader  → Text Generator → Gmail Sender
+Slack Reader  →
+```
+
+**Use Case**: Generate daily report combining code changes, important emails, and team messages.
+
+**Configuration**:
+- Each input agent reads from different source
+- Text Generator receives all inputs:
+  ```
+  Daily Team Report
+  
+  Code Changes: \{\{github.commits\}\}
+  Important Emails: \{\{gmail.messages\}\}
+  Team Discussions: \{\{slack.messages\}\}
+  
+  Create a cohesive summary highlighting key activities.
+  ```
+- Gmail Sender sends consolidated report
+
+**Best Practices**:
+- Ensure all input agents return data in consistent format
+- Handle cases where some sources have no new data
+- Include timestamp and data source labels
+
+### Data Enrichment
+
+Augment data from one source with context from another.
+
+**Structure**:
+```
+Primary Input →
+                 Processing → Output
+Context Input →
+```
+
+**Example: Enhanced Email Responses**
+```
+Gmail Reader (new email) →
+                            Text Generator → Gmail Sender
+Gmail Reader (old emails) →
+```
+
+**Configuration**:
+- First Gmail Reader: Get new message
+- Second Gmail Reader: Get conversation history
+- Text Generator: Draft response using full context
+
+## Monitoring & Alert Patterns
+
+### Change Monitor
+
+Detect changes and send notifications.
+
+**Structure**:
+```
+Monitor Agent → Filter/Process → Alert Agent
+```
+
+**Example: Repository Monitor**
+```
+GitHub Reader → Text Generator → Discord Messenger
+```
+
+**Configuration**:
+- **GitHub Reader**: Check for new commits every hour
+- **Text Generator**: 
+  ```
+  \{\{#if commits.count > 0\}\}
+  🚨 \{\{commits.count\}\} new commit(s) detected!
+  \{\{commits.summary\}\}
+  \{\{/if\}\}
+  ```
+- **Discord Messenger**: Send to #alerts channel
+
+**Best Practices**:
+- Set appropriate check frequency
+- Filter out noise (minor commits, automated changes)
+- Include actionable information
+- Use clear alert formatting
+
+### Threshold Alert
+
+Trigger alerts when metrics exceed thresholds.
+
+**Structure**:
+```
+Data Source → Analysis Agent → Conditional Alert
+```
+
+**Example: Email Volume Alert**
+```
+Gmail Reader → Text Generator → Discord Messenger
+```
+
+**Configuration**:
+- Gmail Reader: Count unread emails
+- Text Generator:
+  ```
+  \{\{#if email.unread_count > 50\}\}
+  ⚠️ High email volume alert!
+  Unread emails: \{\{email.unread_count\}\}
+  Recommendation: Schedule email processing time.
+  \{\{/if\}\}
+  ```
+- Discord Messenger: Send alert if threshold exceeded
+
+## Advanced Patterns
+
+### Workflow Branching
+
+Create different paths based on content analysis.
+
+**Structure**:
+```
+                    → Path 1 → Output 1
+Input → Analyzer   → Path 2 → Output 2
+                    → Path 3 → Output 3
+```
+
+**Example: Smart Email Router**
+```
+                → Text Generator (personal) → Gmail Sender
+Gmail Reader   → Text Generator (work) → Discord
+                → Text Generator (automated) → Archive
+```
+
+**Use Case**: Route emails to different handlers based on content type.
+
+### Feedback Loop
+
+Use output to inform future processing.
+
+**Structure**:
+```
+Input → Process → Output
+  ↑                  |
+  └──────────────────┘
+```
+
+**Example: Iterative Content Improvement**
+```
+Content → Text Generator (improve) → Review → Text Generator (refine) → Final Output
+```
+
+**Configuration**:
+- First pass: Generate initial content
+- Review: Analyze quality/completeness
+- Second pass: Refine based on analysis
+- Output: Final polished content
+
+<Warning>
+Be cautious with feedback loops. Always include exit conditions to prevent infinite loops.
+</Warning>
+
+## Pattern Best Practices
+
+### Design Principles
+
+**Simplicity**
+- Start with simple patterns
+- Add complexity only when needed
+- Keep workflows focused on one goal
+
+**Reliability**
+- Test each agent individually
+- Verify connections are correct
+- Handle errors gracefully
+- Include fallback options
+
+**Maintainability**
+- Use clear agent naming
+- Document complex logic in prompts
+- Keep configurations organized
+- Save workflow versions
+
+### Performance Optimization
+
+**Minimize Latency**
+- Use faster AI models for simple tasks
+- Reduce number of sequential steps
+- Cache repeated operations
+
+**Reduce Costs**
+- Choose appropriate model sizes
+- Minimize token usage in prompts
+- Batch similar operations
+
+**Scale Considerations**
+- Test with realistic data volumes
+- Monitor API rate limits
+- Plan for peak usage times
+
+## Pattern Library
+
+### Email Automation
+
+1. **Auto-Responder**: Gmail Reader → Text Generator → Gmail Sender
+2. **Email Digest**: Gmail Reader → Text Generator → Gmail Sender (daily summary)
+3. **Priority Filter**: Gmail Reader → Text Generator (classify) → Discord (urgent only)
+
+### Team Communication
+
+1. **Stand-up Generator**: GitHub + Slack → Text Generator → Discord
+2. **Change Announcements**: GitHub Reader → Text Generator → Discord + Email
+3. **Meeting Summarizer**: Email Reader → Text Generator → Slack
+
+### Content Creation
+
+1. **Blog Ideas**: GitHub Reader → Text Generator → Gmail Sender
+2. **Social Posts**: Content Input → Text Generator → Multi-channel Output
+3. **Newsletter**: Multiple Inputs → Text Generator → Email Sender
+
+### Monitoring
+
+1. **Error Alerts**: Log Reader → Text Generator → Discord (errors only)
+2. **Metrics Reports**: Data Source → Text Generator → Email (daily)
+3. **Change Detection**: GitHub Reader → Text Generator → Discord (on changes)
+
+## Building Your Own Patterns
+
+<Steps>
+  <Step title="Identify the Goal">
+    What problem are you solving? What outcome do you want?
+  </Step>
+
+  <Step title="Map Data Flow">
+    Sketch the flow from input to output. What transformations are needed?
+  </Step>
+
+  <Step title="Select Agents">
+    Choose agents that match your data flow:
+    - **Input**: Gmail Reader, GitHub Reader
+    - **Processing**: Text Generator
+    - **Output**: Gmail Sender, Discord Messenger
+  </Step>
+
+  <Step title="Start Simple">
+    Build a minimal version with 2-3 agents first.
+  </Step>
+
+  <Step title="Test & Iterate">
+    Test the basic workflow, then add complexity gradually.
+  </Step>
+
+  <Step title="Document Pattern">
+    Save successful patterns as templates for reuse.
+  </Step>
+</Steps>
+
+<Tip>
+Keep a library of your successful patterns. You can reuse and adapt them for new use cases.
+</Tip>
+
+## Next Steps
+
+- Learn about [creating workflows](/guides/creating-workflows) from scratch
+- Master [connecting agents](/guides/connecting-agents) for complex patterns
+- Practice [testing workflows](/guides/testing-workflows) to ensure reliability
+- Explore the available agents to discover new pattern possibilities

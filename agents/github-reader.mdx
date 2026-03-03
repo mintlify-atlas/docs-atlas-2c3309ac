@@ -1,0 +1,374 @@
+---
+title: "GitHub Reader Agent"
+description: "Monitor GitHub repositories for commits and changes"
+---
+
+The GitHub Reader agent monitors GitHub repositories and retrieves commit information, file changes, and repository activity. Perfect for keeping track of code changes, triggering workflows on new commits, and automating responses to repository updates.
+
+## Use Cases
+
+- Monitor repositories for new commits
+- Track file changes and code modifications
+- Generate commit summaries and changelogs
+- Trigger workflows on push events
+- Send notifications about repository activity
+- Create automated code review reminders
+
+## Configuration
+
+### GitHub Authentication
+
+<ParamField path="accessToken" type="string" required>
+  Your GitHub Personal Access Token (PAT). This token authenticates your requests to the GitHub API.
+  
+  **Required Scopes:**
+  - `repo` - Full control of private repositories
+  - `admin:repo_hook` - Full control of repository hooks (for webhook setup)
+  
+  **How to create:**
+  1. Go to [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
+  2. Click "Generate new token (classic)"
+  3. Select required scopes
+  4. Generate and copy the token
+</ParamField>
+
+<Warning>
+  Treat your GitHub token like a password. Never share it or commit it to version control.
+</Warning>
+
+### Repository Settings
+
+<ParamField path="repository" type="string" required>
+  The repository to monitor in `owner/repo` format.
+  
+  **Examples:**
+  - `facebook/react`
+  - `microsoft/vscode`
+  - `your-username/your-repo`
+</ParamField>
+
+<ParamField path="branch" type="string" default="main">
+  The branch to monitor for commits.
+  
+  **Default:** `main`
+  
+  **Common values:** `main`, `master`, `develop`, `staging`
+</ParamField>
+
+### Webhook Configuration
+
+The GitHub Reader can set up webhooks to trigger your workflow automatically when new commits are pushed.
+
+<ParamField path="webhookUrl" type="string">
+  Automatically generated webhook URL. Click "Set Up Webhook" to create.
+</ParamField>
+
+<ParamField path="webhookSecret" type="string">
+  Automatically generated secret used to verify webhook payloads from GitHub.
+</ParamField>
+
+<Info>
+  Webhooks allow real-time workflow triggering instead of polling. Set up a webhook to execute your workflow immediately when commits are pushed.
+</Info>
+
+## Output Structure
+
+The GitHub Reader provides comprehensive repository and commit data.
+
+<ResponseField name="repoName" type="string" required>
+  The repository name in `owner/repo` format.
+</ResponseField>
+
+<ResponseField name="branch" type="string" required>
+  The branch that was monitored.
+</ResponseField>
+
+<ResponseField name="commits" type="array" required>
+  Array of commit objects with detailed information about each commit.
+</ResponseField>
+
+<ResponseField name="commits[].id" type="string" required>
+  The commit SHA identifier (40-character hash).
+</ResponseField>
+
+<ResponseField name="commits[].message" type="string" required>
+  The commit message.
+</ResponseField>
+
+<ResponseField name="commits[].author" type="string" required>
+  The commit author's name and email.
+</ResponseField>
+
+<ResponseField name="commits[].timestamp" type="string" required>
+  ISO 8601 timestamp of when the commit was made.
+</ResponseField>
+
+<ResponseField name="commits[].url" type="string" required>
+  Direct URL to view the commit on GitHub.
+</ResponseField>
+
+<ResponseField name="commits[].files" type="array">
+  Array of files changed in this commit.
+</ResponseField>
+
+<ResponseField name="commits[].files[].filename" type="string">
+  Name/path of the file that was changed.
+</ResponseField>
+
+<ResponseField name="commits[].files[].status" type="string">
+  Status of the change: `added`, `modified`, or `removed`.
+</ResponseField>
+
+<ResponseField name="commits[].files[].additions" type="number">
+  Number of lines added to this file.
+</ResponseField>
+
+<ResponseField name="commits[].files[].deletions" type="number">
+  Number of lines deleted from this file.
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  A summary of changes in the repository.
+</ResponseField>
+
+<ResponseField name="pusher" type="string">
+  The GitHub username of the person who pushed the changes.
+</ResponseField>
+
+### Example Output
+
+```json
+{
+  "repoName": "owner/repository",
+  "branch": "main",
+  "commits": [
+    {
+      "id": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0",
+      "message": "Add new feature for user authentication",
+      "author": "John Doe <john@example.com>",
+      "timestamp": "2024-03-15T10:30:00Z",
+      "url": "https://github.com/owner/repository/commit/a1b2c3d4",
+      "files": [
+        {
+          "filename": "src/auth.js",
+          "status": "modified",
+          "additions": 45,
+          "deletions": 12
+        },
+        {
+          "filename": "tests/auth.test.js",
+          "status": "added",
+          "additions": 78,
+          "deletions": 0
+        }
+      ]
+    }
+  ],
+  "summary": "2 files changed, 123 insertions(+), 12 deletions(-)",
+  "pusher": "johndoe"
+}
+```
+
+## Usage Examples
+
+### Commit Notification Bot
+
+**Workflow:** Send Discord notifications for new commits
+
+1. **GitHub Reader**
+   - Repository: `company/main-app`
+   - Branch: `main`
+   - Webhook: Set up webhook
+
+2. **Discord Messenger**
+   - Message:
+   ```
+   📦 **New Commit in {{repoName}}**
+   
+   **Author:** {{commits[0].author}}
+   **Message:** {{commits[0].message}}
+   **Files Changed:** {{commits[0].files.length}}
+   
+   [View Commit]({{commits[0].url}})
+   ```
+
+### Automated Commit Summary
+
+**Workflow:** Generate and email daily commit summaries
+
+1. **GitHub Reader**
+   - Repository: `team/project`
+   - Branch: `develop`
+
+2. **Text Generator**
+   - Model: `gpt-4-turbo`
+   - Prompt:
+   ```
+   Analyze these commits and create a technical summary:
+   
+   {{commits}}
+   
+   Include:
+   - Key features added
+   - Bug fixes
+   - Breaking changes
+   - Files with most changes
+   ```
+
+3. **Gmail Sender**
+   - To: `team@company.com`
+   - Subject: `Daily Commit Summary - {{repoName}}`
+   - Body:
+   ```
+   Repository: {{repoName}}
+   Branch: {{branch}}
+   Commits: {{commits.length}}
+   
+   {{text}}
+   ```
+
+### Code Review Reminder
+
+**Workflow:** Notify team when large commits are made
+
+1. **GitHub Reader**
+   - Repository: `company/critical-service`
+   - Branch: `main`
+   - Webhook: Enabled
+
+2. **Text Generator**
+   - Prompt:
+   ```
+   Check if this commit needs review:
+   
+   Files changed: {{commits[0].files.length}}
+   Lines added: {{commits[0].files[0].additions}}
+   Lines deleted: {{commits[0].files[0].deletions}}
+   
+   If more than 5 files or 100 lines changed, respond "REVIEW NEEDED"
+   Otherwise respond "SMALL CHANGE"
+   ```
+
+3. **Discord Messenger** (conditional)
+   - Message:
+   ```
+   ⚠️ **Large Commit - Review Needed**
+   
+   {{commits[0].author}} pushed a large commit:
+   "{{commits[0].message}}"
+   
+   {{commits[0].files.length}} files changed
+   
+   [Review Now]({{commits[0].url}})
+   ```
+
+### Release Notes Generator
+
+**Workflow:** Generate release notes from commits
+
+1. **GitHub Reader**
+   - Repository: `company/product`
+   - Branch: `main`
+
+2. **Text Generator**
+   - Model: `claude-3-sonnet-20240229`
+   - Prompt:
+   ```
+   Generate user-facing release notes from these commits:
+   
+   {{commits}}
+   
+   Format:
+   ## New Features
+   - ...
+   
+   ## Bug Fixes
+   - ...
+   
+   ## Improvements
+   - ...
+   
+   Focus on user-visible changes, skip internal refactoring.
+   ```
+
+3. **Gmail Sender**
+   - To: `announcements@company.com`
+   - Subject: `Release Notes - {{repoName}}`
+   - Body: `{{text}}`
+
+## Webhook Setup
+
+### Automatic Setup
+
+1. Enter your GitHub token and repository information
+2. Click "Set Up Webhook"
+3. The webhook URL and secret are automatically generated
+4. The webhook is registered with GitHub
+5. Your workflow will now trigger on new commits
+
+### Manual Setup
+
+If automatic setup fails, you can manually configure the webhook:
+
+1. Go to your GitHub repository
+2. Navigate to Settings → Webhooks → Add webhook
+3. Enter the webhook URL from Agility
+4. Set Content type to `application/json`
+5. Enter the webhook secret from Agility
+6. Select "Just the push event"
+7. Click "Add webhook"
+
+## Best Practices
+
+### Token Security
+
+- Create tokens with minimal required permissions
+- Rotate tokens regularly
+- Use different tokens for different workflows
+- Revoke unused tokens immediately
+
+### Repository Monitoring
+
+- Monitor specific branches (main, production) rather than all branches
+- Use webhooks for real-time triggering instead of polling
+- Set up separate workflows for different repositories
+
+### Commit Processing
+
+- Process commits in batches when appropriate
+- Filter commits by file paths or commit messages
+- Use Text Generator to extract relevant information
+- Combine with other agents for comprehensive automation
+
+### Performance
+
+- GitHub API has rate limits (5,000 requests/hour for authenticated requests)
+- Use webhooks to avoid unnecessary API calls
+- Cache commit data when possible
+
+## Error Handling
+
+Common errors and solutions:
+
+- **GitHub access token is required**: Enter a valid personal access token
+- **Repository name is required**: Provide repository in `owner/repo` format
+- **Invalid token**: Verify token hasn't expired and has correct permissions
+- **Repository not found**: Check repository name and token permissions
+- **Webhook setup failed**: Ensure token has `admin:repo_hook` scope
+- **Rate limit exceeded**: Wait for rate limit reset or use webhook triggering
+
+## Testing
+
+### Test Agent
+Retrieves recent commits from the repository immediately. Displays commit information, file changes, and metadata.
+
+### Test Workflow
+Executs the entire workflow with real commit data, showing how commits flow through subsequent agents.
+
+## Limitations
+
+- GitHub API rate limits apply (5,000 requests/hour)
+- Webhook payloads are limited to 25MB
+- Historical commits are limited to recent activity
+- Large repositories may have longer processing times
+- Binary files are detected but content is not provided

@@ -1,0 +1,573 @@
+---
+title: Connections
+description: Learn how agents communicate through connections and how data flows through your workflows
+---
+
+## What is a Connection?
+
+A connection is a link between two agents in a workflow that defines the execution order and enables data flow. Connections create a directed graph where data propagates from source agents to target agents.
+
+## Connection Structure
+
+### Core Definition
+
+Every connection has these properties:
+
+```typescript
+interface Connection {
+  id: string;         // Unique connection identifier
+  sourceId: string;   // Element ID of the source agent
+  targetId: string;   // Element ID of the target agent
+  type: string;       // Connection type
+  data?: any;         // Optional metadata
+}
+```
+
+### Visual Representation
+
+In the workflow builder, connections appear as arrows between agents:
+
+```
+[Gmail Reader] ───→ [Text Generator] ───→ [Gmail Sender]
+   sourceId            target/source          targetId
+```
+
+## Connection Types
+
+### Sequential Connections
+
+The most common pattern - linear data flow:
+
+```typescript
+[
+  {
+    id: "conn-1",
+    sourceId: "element-1",  // Gmail Reader
+    targetId: "element-2",  // Text Generator
+    type: "default"
+  },
+  {
+    id: "conn-2",
+    sourceId: "element-2",  // Text Generator
+    targetId: "element-3",  // Gmail Sender
+    type: "default"
+  }
+]
+```
+
+Execution order: Element 1 → Element 2 → Element 3
+
+### One-to-Many (Fan-Out)
+
+One agent sends data to multiple downstream agents:
+
+```typescript
+[
+  {
+    id: "conn-1",
+    sourceId: "element-1",  // Text Generator
+    targetId: "element-2",  // Discord Messenger
+    type: "default"
+  },
+  {
+    id: "conn-2",
+    sourceId: "element-1",  // Text Generator (same source)
+    targetId: "element-3",  // Gmail Sender
+    type: "default"
+  },
+  {
+    id: "conn-3",
+    sourceId: "element-1",  // Text Generator (same source)
+    targetId: "element-4",  // Slack Notifier
+    type: "default"
+  }
+]
+```
+
+```
+                 ┌──→ [Discord Messenger]
+[Text Generator]─┼──→ [Gmail Sender]
+                 └──→ [Slack Notifier]
+```
+
+<Note>
+All target agents execute after the source completes. They receive the same output data from the source agent.
+</Note>
+
+### Many-to-One (Fan-In)
+
+Multiple agents feed data to a single downstream agent:
+
+```typescript
+[
+  {
+    id: "conn-1",
+    sourceId: "element-1",  // Gmail Reader
+    targetId: "element-4",  // Text Generator
+    type: "default"
+  },
+  {
+    id: "conn-2",
+    sourceId: "element-2",  // Slack Reader
+    targetId: "element-4",  // Text Generator (same target)
+    type: "default"
+  },
+  {
+    id: "conn-3",
+    sourceId: "element-3",  // GitHub Reader
+    targetId: "element-4",  // Text Generator (same target)
+    type: "default"
+  }
+]
+```
+
+```
+[Gmail Reader] ───┐
+[Slack Reader] ───┼──→ [Text Generator]
+[GitHub Reader] ──┘
+```
+
+<Warning>
+The target agent executes once the first source completes. It won't wait for all sources. Design workflows carefully when using fan-in patterns.
+</Warning>
+
+## Data Flow Mechanism
+
+### Output Context
+
+As agents execute, their outputs are stored in a shared context:
+
+```typescript
+const outputContext = {
+  // Element-specific outputs
+  "element-1": {
+    messages: [...],
+  },
+  "element-2": {
+    text: "Generated summary"
+  },
+  
+  // Shared input namespace
+  input: {
+    emailBody: "Email content...",
+    text: "Generated summary"
+  }
+};
+```
+
+### Placeholder Resolution
+
+Downstream agents access upstream data using placeholders:
+
+```typescript
+// Gmail Reader outputs email data
+// Text Generator configuration:
+{
+  prompt: "Summarize this email: {{input.emailBody}}"
+}
+
+// Discord Messenger configuration:
+{
+  content: "New email summary: {{input.text}}"
+}
+```
+
+### Resolution Process
+
+From `run-workflow/index.ts:9`:
+
+```typescript
+function resolvePlaceholders(text: string, context: object): string {
+  // Find all {{input.*}} patterns
+  return text.replace(/{{input\.(.*?)}}/g, (match, path) => {
+    // Extract the field path
+    const fullPath = `input.${path}`;
+    
+    // Get value from context
+    const value = getValueByPath(context, fullPath);
+    
+    // Convert to string
+    return typeof value === 'string' ? value 
+      : value === null || value === undefined ? '' 
+      : JSON.stringify(value);
+  });
+}
+```
+
+### Nested Field Access
+
+Placeholders support nested field access:
+
+```typescript
+// Gmail Reader outputs:
+{
+  input: {
+    messages: [
+      {
+        subject: "Hello",
+        body: "Email content"
+      }
+    ]
+  }
+}
+
+// Access nested fields:
+"Subject: {{input.messages.0.subject}}"
+"Body: {{input.messages.0.body}}"
+```
+
+### Path Resolution Algorithm
+
+From `run-workflow/index.ts:46`:
+
+```typescript
+function getValueByPath(obj: object, path: string): any {
+  const parts = path.split('.');
+  let current = obj;
+  
+  for (const part of parts) {
+    // Handle array indices
+    if (/^\d+$/.test(part)) {
+      const index = parseInt(part, 10);
+      if (Array.isArray(current) && index < current.length) {
+        current = current[index];
+      } else {
+        return undefined;
+      }
+    } 
+    // Handle object properties
+    else {
+      if (part in current) {
+        current = current[part];
+      } else {
+        return undefined;
+      }
+    }
+  }
+  
+  return current;
+}
+```
+
+## Connection Map
+
+During execution, connections are transformed into a lookup map for efficient traversal:
+
+```typescript
+// From run-workflow/index.ts:285
+const connectionMap = new Map<string, string[]>();
+
+for (const connection of connections) {
+  if (!connectionMap.has(connection.sourceId)) {
+    connectionMap.set(connection.sourceId, []);
+  }
+  connectionMap.get(connection.sourceId).push(connection.targetId);
+}
+
+// Example result:
+Map {
+  "element-1" => ["element-2"],
+  "element-2" => ["element-3", "element-4", "element-5"],
+  "element-3" => ["element-6"]
+}
+```
+
+This structure enables O(1) lookup of downstream elements:
+
+```typescript
+// From run-workflow/index.ts:765
+const nextElementIds = connectionMap.get(currentElementId) || [];
+for (const nextElementId of nextElementIds) {
+  queue.push(nextElementId);
+}
+```
+
+## Execution Order
+
+### Breadth-First Traversal
+
+Connections define a graph that's traversed breadth-first:
+
+```typescript
+// From run-workflow/index.ts:315
+const queue = [startElementId];
+const processed = new Set();
+
+while (queue.length > 0) {
+  const currentElementId = queue.shift();
+  
+  if (processed.has(currentElementId)) continue;
+  processed.add(currentElementId);
+  
+  // Execute agent
+  await executeAgent(currentElementId);
+  
+  // Add connected elements to queue
+  const nextElements = connectionMap.get(currentElementId);
+  queue.push(...nextElements);
+}
+```
+
+### Example Execution Order
+
+Given this workflow:
+
+```
+       ┌──→ [B] ──→ [E]
+[A] ───┤
+       └──→ [C] ──→ [F]
+            ↓
+           [D]
+```
+
+Execution proceeds:
+
+1. **A** (start)
+2. **B** and **C** (A's children)
+3. **D** (C's child)
+4. **E** (B's child) and **F** (C's child)
+
+Order: `A → B → C → D → E → F`
+
+### Cycle Prevention
+
+The execution engine prevents infinite loops:
+
+```typescript
+// From run-workflow/index.ts:322
+if (processed.has(currentElementId)) {
+  debug('Skipping already processed element', { elementId });
+  continue;
+}
+processed.add(currentElementId);
+```
+
+<Warning>
+Avoid creating circular connections (A → B → A). While the engine prevents infinite loops, the behavior may be unexpected.
+</Warning>
+
+## Connection Patterns
+
+### Pattern 1: Linear Pipeline
+
+**Use Case**: Sequential processing with clear stages
+
+```
+[Input] → [Process] → [Transform] → [Output]
+```
+
+**Example**:
+```
+[Gmail Reader] → [Text Generator] → [Gmail Sender]
+```
+
+**Benefits**:
+- Simple to understand
+- Easy to debug
+- Clear data flow
+
+### Pattern 2: Broadcast
+
+**Use Case**: Send same data to multiple destinations
+
+```
+           ┌──→ [Output 1]
+[Process] ─┼──→ [Output 2]
+           └──→ [Output 3]
+```
+
+**Example**:
+```
+                    ┌──→ [Discord Messenger]
+[Text Generator] ───┼──→ [Gmail Sender]
+                    └──→ [Slack Notifier]
+```
+
+**Benefits**:
+- Parallel execution of outputs
+- Same data to multiple channels
+- Reduces redundant processing
+
+### Pattern 3: Conditional Split
+
+**Use Case**: Different paths based on data (requires manual setup)
+
+```
+         ┌──→ [Handler A] (manually configured)
+[Input] ─┤
+         └──→ [Handler B] (manually configured)
+```
+
+**Note**: Currently, all connected agents execute. True conditional execution would require additional logic.
+
+### Pattern 4: Aggregation
+
+**Use Case**: Combine data from multiple sources
+
+```
+[Source 1] ──┐
+[Source 2] ──┼──→ [Aggregator]
+[Source 3] ──┘
+```
+
+**Example**:
+```
+[Gmail Reader] ────┐
+[Slack Reader] ────┼──→ [Text Generator]
+[GitHub Reader] ───┘
+```
+
+**Limitation**: Target executes when first source completes, not after all sources.
+
+## Best Practices
+
+<Accordion title="Design Clear Data Flow Paths">
+Create connections that make the data flow obvious. Avoid complex crossing lines in your workflow diagram.
+</Accordion>
+
+<Accordion title="Use Fan-Out for Broadcasting">
+When sending the same data to multiple destinations, use one-to-many connections rather than duplicating processing agents.
+</Accordion>
+
+<Accordion title="Test Individual Paths First">
+Before creating complex connection patterns, verify each path works independently.
+</Accordion>
+
+<Accordion title="Document Complex Patterns">
+For workflows with many connections, add descriptions explaining the logic and data flow.
+</Accordion>
+
+<Accordion title="Avoid Deep Nesting">
+Keep workflows relatively flat. If you need many sequential steps, consider breaking into multiple workflows.
+</Accordion>
+
+<Accordion title="Monitor Context Size">
+Each agent adds data to the context. Very long workflows with many agents might accumulate large amounts of data.
+</Accordion>
+
+## Common Issues
+
+### Missing Data
+
+**Problem**: Downstream agent receives empty values
+
+**Cause**: Placeholder references field that doesn't exist in context
+
+**Solution**:
+```typescript
+// Check what upstream agent actually outputs
+// Verify placeholder syntax: {{input.fieldName}}
+// Ensure upstream agent completed successfully
+```
+
+### Unexpected Execution Order
+
+**Problem**: Agents execute in wrong order
+
+**Cause**: Connections don't properly define dependencies
+
+**Solution**: Review connection map - ensure each dependency has a connection.
+
+### Duplicate Execution
+
+**Problem**: Agent appears to run twice
+
+**Cause**: Multiple connections target the same agent from different sources
+
+**Solution**: This is expected with fan-in patterns. The agent executes when the first source completes.
+
+### Configuration Errors
+
+**Problem**: Agent fails with "Agent not configured"
+
+**Cause**: Agent instance doesn't have saved configuration
+
+**Solution**: Configure each agent before running the workflow.
+
+## Advanced Topics
+
+### Connection Metadata
+
+The `data` field allows storing additional connection information:
+
+```typescript
+{
+  id: "conn-1",
+  sourceId: "element-1",
+  targetId: "element-2",
+  type: "default",
+  data: {
+    label: "On Success",
+    condition: "status === 'success'",
+    weight: 1
+  }
+}
+```
+
+While not currently used during execution, this enables future features like:
+- Conditional execution
+- Weighted routing
+- Visual labels
+
+### Dynamic Connections
+
+Connections are currently static (defined at design time). Future enhancements could support:
+- Runtime connection creation
+- Dynamic routing based on data
+- Conditional execution paths
+
+### Connection Validation
+
+Before execution, validate:
+
+```typescript
+// Check for orphaned agents (no incoming connections)
+const allTargets = new Set(connections.map(c => c.targetId));
+const orphans = elements.filter(e => 
+  e.id !== startElementId && !allTargets.has(e.id)
+);
+
+// Check for unreachable agents
+const reachable = findReachable(startElementId, connectionMap);
+const unreachable = elements.filter(e => !reachable.has(e.id));
+```
+
+## Performance Considerations
+
+### Connection Lookup Optimization
+
+The connection map provides O(1) lookup:
+
+```typescript
+// Efficient: O(1)
+const nextElements = connectionMap.get(elementId);
+
+// Inefficient: O(n)
+const nextElements = connections
+  .filter(c => c.sourceId === elementId)
+  .map(c => c.targetId);
+```
+
+### Large Workflows
+
+For workflows with many agents and connections:
+
+1. **Memory**: Context grows with each agent output
+2. **Execution Time**: Sequential execution can be slow
+3. **Database Queries**: Each agent config requires a query
+
+**Optimization strategies**:
+- Limit workflow depth
+- Use fan-out sparingly
+- Consider splitting into multiple workflows
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflows" icon="diagram-project" href="/concepts/workflows">
+    Learn about workflow structure and execution
+  </Card>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Understand the agents that connections link together
+  </Card>
+</CardGroup>

@@ -1,0 +1,89 @@
+---
+title: "Agents Overview"
+description: "Comprehensive guide to all available workflow agents in Agility"
+---
+
+Agents are the building blocks of your workflows in Agility. Each agent performs a specific task, from generating text with AI models to reading emails and sending messages to Discord.
+
+## Available Agents
+
+<CardGroup cols={2}>
+  <Card
+    title="Text Generator"
+    icon="sparkles"
+    href="/agents/text-generator"
+  >
+    Generate text using OpenAI GPT or Anthropic Claude models
+  </Card>
+  
+  <Card
+    title="Gmail Reader"
+    icon="envelope-open"
+    href="/agents/gmail-reader"
+  >
+    Read and filter emails from your Gmail account
+  </Card>
+  
+  <Card
+    title="Gmail Sender"
+    icon="paper-plane"
+    href="/agents/gmail-sender"
+  >
+    Send automated emails through your Gmail account
+  </Card>
+  
+  <Card
+    title="Discord Messenger"
+    icon="discord"
+    href="/agents/discord-messenger"
+  >
+    Send messages to Discord channels via webhooks
+  </Card>
+  
+  <Card
+    title="GitHub Reader"
+    icon="github"
+    href="/agents/github-reader"
+  >
+    Monitor GitHub repositories for commits and changes
+  </Card>
+</CardGroup>
+
+## How Agents Work
+
+Agents in Agility follow a consistent pattern:
+
+1. **Configuration** - Each agent requires specific credentials and settings
+2. **Input Structure** - Agents can access data from previous steps in the workflow
+3. **Execution** - Agents perform their designated task when the workflow runs
+4. **Output Structure** - Agents produce structured data that subsequent steps can use
+
+## Agent Testing
+
+Every agent provides two testing options:
+
+- **Test Agent** - Tests the agent in isolation with your current configuration
+- **Test Workflow** - Runs the entire workflow from the beginning to see how data flows through the agent
+
+## Common Features
+
+### Input Field Insertion
+
+Most agents support inserting fields from previous workflow steps. Click on available input fields to insert them into prompts, email bodies, or message content.
+
+### Configuration Persistence
+
+Agent configurations are automatically saved and encrypted. Your API keys and credentials are securely stored and only accessible to your workflows.
+
+### Error Handling
+
+Agents provide detailed error messages when configuration is incorrect or when API calls fail, making it easy to troubleshoot issues.
+
+## Next Steps
+
+Explore the documentation for each agent to learn about:
+
+- Required credentials and authentication
+- Available configuration parameters
+- Output data structure
+- Real-world usage examples

@@ -1,80 +1,199 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get started with Agility in 5 minutes - create your first automated workflow
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Create an account">
+    Navigate to your Agility instance and sign up for a new account using your email address.
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    Once signed in, you'll be directed to the workflow builder interface.
+  </Step>
+
+  <Step title="Access the workflow builder">
+    Click **Try the Workflow Builder** from the homepage or navigate directly to `/workflow`.
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    You'll see:
+    - **Canvas** - The main workspace where you build workflows
+    - **Agent Panel** - Left sidebar with available agents
+    - **Configuration Panel** - Right sidebar (appears when you select an agent)
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Create your first workflow">
+    You can create workflows in two ways:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ### Method 1: Manual Creation
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    1. Drag an agent from the left panel onto the canvas
+    2. Click the agent to open its configuration panel
+    3. Configure the agent with required credentials and settings
+    4. Click **Save Configuration**
+    
+    ### Method 2: AI-Powered Generation
+    
+    1. Look for the AI workflow generation input
+    2. Describe your workflow in plain English (e.g., "Read my Gmail, summarize with AI, send to Discord")
+    3. Click **Generate Workflow**
+    4. The AI will create a complete workflow with connected agents
+    
+    <Tip>
+    AI generation is the fastest way to get started - describe your automation goal and let Agility build it for you.
+    </Tip>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Configure your agents">
+    For each agent in your workflow, you'll need to provide configuration:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    **Text Generator:**
+    - OpenAI or Anthropic API key
+    - Model selection (gpt-4, gpt-3.5-turbo, claude-3-5-sonnet)
+    - Prompt text (supports placeholders like `\{\{input.text\}\}`)
 
-### Step 3: Go live
+    **Gmail Reader:**
+    - Gmail OAuth credentials
+    - Filter by sender email
+    - Maximum results to fetch
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    **Gmail Sender:**
+    - Gmail OAuth credentials  
+    - Recipient email
+    - Subject and body (supports placeholders)
+
+    **Discord Messenger:**
+    - Discord webhook URL
+    - Message content (supports placeholders)
+    - Optional: Custom username and avatar
+
+    **GitHub Reader:**
+    - GitHub Personal Access Token
+    - Repository name (owner/repo format)
+    - Branch to monitor
+
+    <Note>
+    Credentials are stored securely in your Supabase database with encryption.
+    </Note>
+  </Step>
+
+  <Step title="Connect your agents">
+    Create data flows between agents:
+
+    1. Click and drag from one agent's output port to another agent's input port
+    2. A connection line appears showing the data flow
+    3. Connected agents can access previous agent outputs using placeholders
+
+    **Example**: Connect Gmail Reader → Text Generator:
+    - In Text Generator prompt, use `\{\{input.emailBody\}\}` to access the email content
+    - Use `\{\{input.emailSubject\}\}` to access the subject line
+
+    <Tip>
+    Hover over an agent to see its available output fields and placeholder syntax.
+    </Tip>
+  </Step>
+
+  <Step title="Test your workflow">
+    Before running the full workflow, test individual agents:
+
+    1. Click an agent to select it
+    2. Click **Test Agent** in the configuration panel
+    3. Review the test results
+    4. Fix any errors in configuration
+
+    Once all agents pass testing, run the complete workflow:
+
+    1. Click **Test Workflow** in the toolbar
+    2. Select the starting agent
+    3. Watch the execution progress
+    4. Review results for each agent
+
+    <Warning>
+    Make sure all agents are configured and saved before running the workflow.
+    </Warning>
+  </Step>
+
+  <Step title="Save and deploy">
+    Once your workflow is working:
+
+    1. Click **Save Workflow** in the toolbar
+    2. Give your workflow a descriptive name
+    3. Your workflow is automatically saved to your account
+
+    For automated execution, you can set up triggers:
+    - **GitHub Reader**: Configure webhooks for automatic execution on push events
+    - **Gmail Reader**: Can be set up as a scheduled workflow (polling)
+    - **API Triggers**: Call the workflow via API endpoint
+
+    See [Testing Workflows](/guides/testing-workflows) for advanced testing techniques.
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Core Concepts" icon="book" href="/concepts/workflows">
+    Understand workflows, agents, and connections in depth
+  </Card>
+  <Card title="Agent Reference" icon="puzzle-piece" href="/agents/overview">
+    Explore all available agents and their capabilities
+  </Card>
+  <Card title="Workflow Patterns" icon="diagram-project" href="/guides/common-patterns">
+    Learn common workflow patterns and best practices
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Integrate workflows with your applications via API
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Example workflow
+
+Here's a complete example workflow that monitors GitHub commits and posts summaries to Discord:
+
+```typescript
+// Workflow: GitHub Commit Notifier
+// 
+// 1. GitHub Reader Agent
+//    - Repository: "username/my-repo"
+//    - Branch: "main"
+//    - Triggers on: Push events
+//
+// 2. Text Generator Agent  
+//    - Model: "gpt-4"
+//    - Prompt: "Summarize these commits concisely:\n\{\{input.commits\}\}"
+//
+// 3. Discord Messenger Agent
+//    - Webhook URL: "https://discord.com/api/webhooks/..."
+//    - Message: "📦 New commits to my-repo:\n\{\{input.text\}\}"
+```
+
+This workflow automatically:
+1. Detects new commits via GitHub webhook
+2. Generates an AI summary of the changes
+3. Posts the summary to your Discord channel
+
+<Tip>
+Copy this pattern and modify the agents to create your own custom automations.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Agent configuration not saving">
+    Make sure you click **Save Configuration** after entering credentials. Check the browser console for any error messages.
+  </Accordion>
+
+  <Accordion title="Workflow execution fails">
+    Test each agent individually first. Common issues:
+    - Invalid API keys or credentials
+    - Incorrect placeholder syntax
+    - Missing required configuration fields
+  </Accordion>
+
+  <Accordion title="Connections not creating">
+    Ensure both agents are properly placed on the canvas. Try refreshing the page if connections appear stuck.
+  </Accordion>
+
+  <Accordion title="Gmail authentication fails">
+    Verify your OAuth credentials are correctly configured in Supabase. See [Gmail Reader](/agents/gmail-reader) for detailed setup instructions.
+  </Accordion>
+</AccordionGroup>
+
+Need more help? Check out our [detailed guides](/guides/creating-workflows) or [deployment documentation](/deployment/overview).

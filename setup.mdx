@@ -1,0 +1,495 @@
+---
+title: Setup Guide
+description: Complete environment setup and service integration for Agility
+---
+
+# Setup Guide
+
+This guide covers the complete setup process for Agility, including environment configuration, service integrations, and credential management.
+
+<Note>
+  If you're deploying your own instance of Agility, follow this guide. If you're using a hosted version, skip to [Service Integrations](#service-integrations).
+</Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** or **Bun** runtime
+- **Supabase account** (free tier available)
+- **API keys** for services you plan to use:
+  - OpenAI API key for GPT models
+  - Anthropic API key for Claude models
+  - GitHub Personal Access Token for repository monitoring
+  - Discord Webhook URL for notifications
+  - Gmail OAuth credentials for email automation
+
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/yourusername/agility.git
+    cd agility
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    Choose your preferred package manager:
+    
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
+    
+    ```bash yarn
+    yarn install
+    ```
+    
+    ```bash bun
+    bun install
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    Create a `.env.local` file in the root directory:
+    
+    ```bash .env.local
+    # Supabase Configuration
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
+    
+    <Warning>
+      Never commit your `.env.local` file to version control. It contains sensitive credentials.
+    </Warning>
+  </Step>
+  
+  <Step title="Start the Development Server">
+    ```bash
+    npm run dev
+    # or
+    yarn dev
+    # or
+    bun dev
+    ```
+    
+    The application will be available at `http://localhost:3000`.
+  </Step>
+</Steps>
+
+## Supabase Setup
+
+### Create Your Supabase Project
+
+<Steps>
+  <Step title="Create a New Project">
+    1. Go to [supabase.com](https://supabase.com)
+    2. Click **"New Project"**
+    3. Enter project details and select a region
+    4. Wait for the database to initialize (2-3 minutes)
+  </Step>
+  
+  <Step title="Get Your Project Credentials">
+    Navigate to **Settings** → **API** and copy:
+    
+    - **Project URL**: `NEXT_PUBLIC_SUPABASE_URL`
+    - **Anon/Public Key**: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    
+    Paste these into your `.env.local` file.
+  </Step>
+  
+  <Step title="Enable Email Authentication">
+    Go to **Authentication** → **Providers** and ensure **Email** is enabled. This allows users to sign up and sign in.
+  </Step>
+</Steps>
+
+### Deploy Edge Functions
+
+Agility uses Supabase Edge Functions for serverless workflow execution. Deploy them using the Supabase CLI:
+
+<Steps>
+  <Step title="Install Supabase CLI">
+    ```bash
+    npm install -g supabase
+    ```
+  </Step>
+  
+  <Step title="Link Your Project">
+    ```bash
+    supabase link --project-ref your-project-ref
+    ```
+    
+    Find your project ref in the Supabase dashboard under **Settings** → **General**.
+  </Step>
+  
+  <Step title="Deploy All Functions">
+    ```bash
+    supabase functions deploy
+    ```
+    
+    This deploys all Edge Functions in the `supabase/functions` directory:
+    
+    - `generate-workflow` - AI workflow generation
+    - `generate-text` - Text generation with GPT/Claude
+    - `manage-workflows` - Save and load workflows
+    - `manage-api-keys` - Secure credential storage
+    - `read-gmail` - Gmail integration
+    - `send-gmail` - Gmail sending
+    - `send-discord` - Discord messaging
+    - `read-github` - GitHub repository monitoring
+    - `run-workflow` - Workflow execution engine
+  </Step>
+</Steps>
+
+### Create Database Tables
+
+Run these SQL commands in the Supabase SQL Editor (**Database** → **SQL Editor**):
+
+```sql
+-- Workflows table
+CREATE TABLE workflows (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT,
+  data JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Agent configurations table
+CREATE TABLE agent_configs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  element_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  config JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, element_id)
+);
+
+-- API keys table (encrypted)
+CREATE TABLE api_keys (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  element_id TEXT NOT NULL,
+  encrypted_key TEXT NOT NULL,
+  model TEXT,
+  prompt TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, element_id)
+);
+
+-- Agent connections table
+CREATE TABLE agent_connections (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
+  source_element_id TEXT NOT NULL,
+  target_element_id TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_connections ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can manage their own workflows"
+  ON workflows FOR ALL
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their own configs"
+  ON agent_configs FOR ALL
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their own API keys"
+  ON api_keys FOR ALL
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their own connections"
+  ON agent_connections FOR ALL
+  USING (workflow_id IN (
+    SELECT id FROM workflows WHERE user_id = auth.uid()
+  ));
+```
+
+<Tip>
+  Row Level Security (RLS) ensures users can only access their own data, providing built-in multi-tenancy.
+</Tip>
+
+## Service Integrations
+
+### OpenAI (GPT Models)
+
+<Steps>
+  <Step title="Get Your API Key">
+    1. Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    2. Click **"Create new secret key"**
+    3. Copy the key (it won't be shown again)
+  </Step>
+  
+  <Step title="Add to Agility">
+    In the workflow builder, click a Text Generator agent and paste your API key. Select a GPT model:
+    
+    - **GPT-3.5 Turbo**: Fast and cost-effective
+    - **GPT-4**: More capable, higher quality
+    - **GPT-4 Turbo**: Faster GPT-4 with lower cost
+  </Step>
+  
+  <Step title="Test the Integration">
+    Click **"Test Agent"** to verify your API key works. You should see generated text in the response.
+  </Step>
+</Steps>
+
+### Anthropic (Claude Models)
+
+<Steps>
+  <Step title="Get Your API Key">
+    1. Visit [console.anthropic.com](https://console.anthropic.com/)
+    2. Navigate to **API Keys**
+    3. Click **"Create Key"** and copy it
+  </Step>
+  
+  <Step title="Configure in Agility">
+    In the Text Generator configuration, select a Claude model:
+    
+    - **Claude 3 Haiku**: Fastest, most affordable
+    - **Claude 3 Sonnet**: Balanced performance
+    - **Claude 3 Opus**: Most capable Claude model
+    
+    Paste your Anthropic API key and test.
+  </Step>
+</Steps>
+
+### Gmail Integration
+
+Gmail requires OAuth authentication for secure access:
+
+<Steps>
+  <Step title="Create Google Cloud Project">
+    1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+    2. Create a new project
+    3. Enable the **Gmail API**
+  </Step>
+  
+  <Step title="Configure OAuth Consent Screen">
+    1. Navigate to **APIs & Services** → **OAuth consent screen**
+    2. Select **External** and fill in required details
+    3. Add scopes: `gmail.readonly` and `gmail.send`
+  </Step>
+  
+  <Step title="Create OAuth Credentials">
+    1. Go to **Credentials** → **Create Credentials** → **OAuth client ID**
+    2. Select **Web application**
+    3. Add authorized redirect URI:
+    
+    ```
+    http://localhost:3000/gmail-oauth-callback
+    ```
+    
+    4. Copy the **Client ID** and **Client Secret**
+  </Step>
+  
+  <Step title="Authenticate in Agility">
+    In the Gmail Reader or Gmail Sender agent configuration:
+    
+    1. Click **"Connect Gmail"**
+    2. Sign in with Google
+    3. Grant permissions
+    4. You'll be redirected back to Agility with credentials saved
+    
+    <CodeGroup>
+    ```typescript OAuth Flow
+    // The gmail-oauth Edge Function handles the OAuth flow
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send`;
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Discord Webhooks
+
+<Steps>
+  <Step title="Create a Webhook">
+    1. Open your Discord server
+    2. Go to **Server Settings** → **Integrations** → **Webhooks**
+    3. Click **"New Webhook"**
+    4. Select a channel and copy the webhook URL
+  </Step>
+  
+  <Step title="Configure in Agility">
+    In the Discord Messenger agent configuration:
+    
+    ```json
+    {
+      "webhookUrl": "https://discord.com/api/webhooks/123456789/abcdefgh",
+      "message": "Your automated message here"
+    }
+    ```
+    
+    You can use dynamic fields from previous agents:
+    
+    ```text
+    New email from {{gmail-reader.sender}}: {{text-generator.summary}}
+    ```
+  </Step>
+  
+  <Step title="Test the Webhook">
+    Click **"Test Agent"** - you should see a message appear in your Discord channel.
+  </Step>
+</Steps>
+
+### GitHub Integration
+
+<Steps>
+  <Step title="Create Personal Access Token">
+    1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
+    2. Click **"Generate new token (classic)"**
+    3. Select scopes: `repo` (for private repos) or `public_repo` (for public only)
+    4. Copy the token
+  </Step>
+  
+  <Step title="Configure GitHub Reader">
+    In the GitHub Reader agent:
+    
+    ```json
+    {
+      "token": "ghp_your_github_token",
+      "owner": "username",
+      "repo": "repository-name"
+    }
+    ```
+  </Step>
+  
+  <Step title="Set Up Webhook (Optional)">
+    For real-time push notifications:
+    
+    1. Go to your repository **Settings** → **Webhooks**
+    2. Add webhook URL: `{SUPABASE_URL}/functions/v1/github-webhook`
+    3. Select **"Push events"**
+    4. Agility will automatically trigger workflows when code is pushed
+  </Step>
+</Steps>
+
+## Security Best Practices
+
+<Warning>
+  Follow these security guidelines to protect your credentials and workflows.
+</Warning>
+
+### API Key Storage
+
+All API keys are encrypted before storage:
+
+```typescript
+// Keys are encrypted using Supabase's built-in encryption
+await fetch(`${supabaseUrl}/functions/v1/manage-api-keys`, {
+  method: 'POST',
+  body: JSON.stringify({
+    action: 'save',
+    elementId,
+    apiKey // Encrypted server-side
+  })
+});
+```
+
+### Row Level Security
+
+All database tables use RLS policies to ensure users only access their own data:
+
+```sql
+CREATE POLICY "Users can manage their own workflows"
+  ON workflows FOR ALL
+  USING (auth.uid() = user_id);
+```
+
+### Environment Variables
+
+- Never commit `.env.local` to version control
+- Use different credentials for development and production
+- Rotate API keys regularly
+- Use Supabase's built-in secrets for Edge Functions
+
+## Deployment
+
+### Deploy to Vercel
+
+<Steps>
+  <Step title="Connect Repository">
+    1. Go to [vercel.com](https://vercel.com)
+    2. Click **"Import Project"**
+    3. Connect your GitHub repository
+  </Step>
+  
+  <Step title="Configure Environment">
+    Add your environment variables in Vercel:
+    
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  </Step>
+  
+  <Step title="Deploy">
+    Click **"Deploy"** - Vercel will build and deploy your application. Your workflow builder will be live at `your-app.vercel.app`.
+  </Step>
+</Steps>
+
+### Update OAuth Redirects
+
+After deployment, update your OAuth redirect URIs:
+
+```
+https://your-app.vercel.app/gmail-oauth-callback
+```
+
+Add this to your Google Cloud Console OAuth credentials.
+
+## Troubleshooting
+
+### Edge Function Errors
+
+**Issue**: Edge function returns 500 error
+
+**Solution**: Check logs in Supabase dashboard under **Edge Functions** → **Logs**
+
+### Authentication Issues
+
+**Issue**: Unable to sign in or sign up
+
+**Solution**: Verify email auth is enabled in Supabase under **Authentication** → **Providers**
+
+### API Key Not Persisting
+
+**Issue**: API key disappears after page refresh
+
+**Solution**: Ensure you clicked **"Save Configuration"** and the success message appeared
+
+### Gmail OAuth Fails
+
+**Issue**: OAuth redirect shows error
+
+**Solution**: 
+- Verify redirect URI matches exactly (including http/https)
+- Check OAuth consent screen is configured
+- Ensure Gmail API is enabled in Google Cloud Console
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build Workflows" icon="diagram-project" href="/quickstart">
+    Start creating automated workflows
+  </Card>
+  <Card title="Agent Reference" icon="book">
+    Detailed documentation for each agent type
+  </Card>
+  <Card title="API Documentation" icon="code">
+    Integrate workflows via REST API
+  </Card>
+  <Card title="Best Practices" icon="lightbulb">
+    Learn workflow optimization techniques
+  </Card>
+</CardGroup>

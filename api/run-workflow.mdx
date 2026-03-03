@@ -1,0 +1,160 @@
+---
+title: 'Run Workflow'
+description: 'Execute a workflow starting from a specific element'
+---
+
+## POST /functions/v1/run-workflow
+
+Executes a workflow starting from a specified element and processes all connected agents in sequence.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="startElementId" type="string" required>
+  The ID of the workflow element to start execution from. Can be in UUID format (e.g., `123e4567-e89b-12d3-a456-426614174000-node-1`) or a custom format.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the workflow executed successfully
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  Array of execution results for each agent in the workflow
+  
+  <ResponseField name="elementId" type="string">
+    The ID of the executed element
+  </ResponseField>
+  
+  <ResponseField name="result" type="object">
+    The output from the agent execution. Structure varies by agent type:
+    
+    **Text Generator:**
+    - `text` (string): Generated text
+    - `success` (boolean): Execution status
+    
+    **Gmail Reader:**
+    - `messages` (array): Array of email messages
+    
+    **Gmail Sender:**
+    - `success` (boolean): Send status
+    - `messageId` (string): Gmail message ID
+    
+    **Discord Messenger:**
+    - `success` (boolean): Send status
+    - `messageId` (string): Discord message ID
+    
+    **GitHub Reader:**
+    - `repoName` (string): Repository name
+    - `branch` (string): Branch name
+    - `commits` (array): Array of commit objects
+    - `summary` (string): Summary of commits
+  </ResponseField>
+</ResponseField>
+
+## Workflow Execution
+
+The workflow engine:
+
+1. **Resolves Element**: Extracts workflow ID from the `startElementId` or searches through user workflows
+2. **Loads Workflow**: Fetches workflow data including elements and connections
+3. **Builds Execution Graph**: Creates a connection map from workflow connections
+4. **Executes Sequentially**: Processes agents using breadth-first traversal
+5. **Context Management**: Maintains output context for placeholder resolution
+6. **Cycles Prevention**: Tracks processed elements to avoid infinite loops
+
+### Supported Agent Types
+
+- `text_generator` - Calls `/generate-text` endpoint
+- `gmail_reader` - Calls `/read-gmail` endpoint
+- `gmail_sender` - Calls `/send-gmail` endpoint
+- `discord_messenger` - Calls `/send-discord` endpoint
+- `github_reader` - Calls `/read-github` endpoint
+
+## Placeholder Resolution
+
+Agent configurations can use placeholders that reference outputs from previous agents:
+
+```
+{{input.text}} - Text from text generator
+{{input.emailBody}} - Email body from gmail reader
+{{input.messages.0.subject}} - First email subject
+{{input.repoName}} - Repository name from github reader
+```
+
+## Example
+
+### Request
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/run-workflow \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "startElementId": "123e4567-e89b-12d3-a456-426614174000-text-gen-1"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "elementId": "123e4567-e89b-12d3-a456-426614174000-text-gen-1",
+      "result": {
+        "success": true,
+        "text": "Generated content from AI model"
+      }
+    },
+    {
+      "elementId": "123e4567-e89b-12d3-a456-426614174000-gmail-1",
+      "result": {
+        "success": true,
+        "messageId": "18c5a2b3f9d1e4a6"
+      }
+    }
+  ]
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Starting element not found in workflow"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Start element ID is required` | Missing startElementId parameter |
+| 400 | `Could not determine workflow ID` | Invalid element ID format |
+| 400 | `Agent not configured` | Agent configuration missing |
+| 404 | `Workflow not found` | Workflow doesn't exist or user lacks access |
+| 404 | `Starting element not found in workflow` | Element ID not found in workflow |
+| 500 | `Failed to fetch workflow` | Database error retrieving workflow |
+| 500 | `Failed to fetch agent configuration` | Error loading agent config |
+
+## Notes
+
+- Workflows execute in breadth-first order based on connections
+- Already processed elements are skipped to prevent cycles
+- Each agent's output is stored in a context object for subsequent agents
+- Agent configurations are loaded from the `agent_configs` table
+- The workflow must belong to the authenticated user

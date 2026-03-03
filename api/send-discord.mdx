@@ -1,0 +1,199 @@
+---
+title: 'Send Discord'
+description: 'Send messages to Discord channels using webhooks'
+---
+
+## POST /functions/v1/send-discord
+
+Sends a message to a Discord channel using a webhook URL. Supports custom username and avatar customization.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="elementId" type="string" required>
+  The workflow element ID used to load Discord webhook configuration from the database.
+</ParamField>
+
+<ParamField body="webhookUrl" type="string">
+  Discord webhook URL. Must start with `https://discord.com/api/webhooks/`. If not provided, will be loaded from agent configuration.
+</ParamField>
+
+<ParamField body="content" type="string">
+  The message content to send. If not provided, will be loaded from `messageContent` in agent configuration.
+</ParamField>
+
+<ParamField body="username" type="string">
+  Custom username to display for the webhook message. Overrides the default webhook name.
+</ParamField>
+
+<ParamField body="avatarUrl" type="string">
+  URL to a custom avatar image to display for the webhook message.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the message was sent successfully
+</ResponseField>
+
+<ResponseField name="messageId" type="string">
+  Discord message ID. May be "unknown" if Discord returns 204 No Content.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+  ISO 8601 timestamp of when the message was sent
+</ResponseField>
+
+## Discord Webhook Format
+
+The function sends a JSON payload to the Discord webhook:
+
+```json
+{
+  "content": "Message text",
+  "username": "Custom Bot Name",
+  "avatar_url": "https://example.com/avatar.png"
+}
+```
+
+## Configuration Loading
+
+When `webhookUrl` is not provided directly:
+
+1. Queries `agent_configs` table for `discord_messenger` configuration
+2. Filters by `user_id` and `element_id`
+3. Extracts `webhookUrl`, `username`, `avatarUrl`, and `messageContent`
+4. Uses database values as defaults, with request parameters taking priority
+
+## Examples
+
+### Request with Element ID
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/send-discord \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "discord-msg-123",
+    "content": "Deployment completed successfully!"
+  }'
+```
+
+### Request with Full Parameters
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/send-discord \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "discord-msg-123",
+    "webhookUrl": "https://discord.com/api/webhooks/123456789/abcdefg",
+    "content": "New workflow executed",
+    "username": "Workflow Bot",
+    "avatarUrl": "https://example.com/bot-avatar.png"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "messageId": "1234567890123456789",
+  "timestamp": "2026-03-03T18:30:00.000Z"
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Failed to send Discord message: Invalid webhook URL format"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Element ID is required` | Missing elementId parameter |
+| 400 | `Discord webhook URL is required` | No webhook URL provided or found in config |
+| 400 | `Invalid Discord webhook URL format` | Webhook URL doesn't match Discord format |
+| 404 | `No Discord webhook configuration found` | No agent configuration exists for element |
+| 500 | `Failed to retrieve agent configuration` | Database error loading configuration |
+| 500 | `Failed to send Discord message` | Discord API error or network issue |
+
+## Webhook URL Validation
+
+Webhook URLs must:
+- Start with `https://discord.com/api/webhooks/`
+- Follow Discord's webhook URL format
+- Be active and have proper permissions
+
+## Discord Response Handling
+
+Discord webhooks can return:
+
+- **204 No Content**: Success, no message data returned
+- **200 OK**: Success with message JSON containing `id` and `timestamp`
+- **4xx/5xx**: Error responses with error details
+
+The function handles both 204 and 200 responses gracefully.
+
+## Workflow Integration
+
+When used in workflows with placeholders:
+
+```json
+{
+  "content": "New email received from {{input.emailFrom}}: {{input.emailSubject}}"
+}
+```
+
+Placeholders are resolved by the `run-workflow` function before calling this endpoint.
+
+## Output Storage
+
+Successful message sends are stored in `agent_outputs` table:
+
+```json
+{
+  "user_id": "user-uuid",
+  "element_id": "discord-msg-123",
+  "output": {
+    "success": true,
+    "messageId": "1234567890123456789",
+    "timestamp": "2026-03-03T18:30:00.000Z",
+    "content": "Message text that was sent"
+  },
+  "created_at": "2026-03-03T18:30:00.000Z"
+}
+```
+
+## Rate Limits
+
+Discord webhook rate limits:
+- 30 requests per minute per webhook
+- 2000 character limit for message content
+- Rate limit headers are not parsed by this function
+
+## Notes
+
+- Webhook URLs should be kept secure and not exposed publicly
+- The webhook URL is not logged for security reasons
+- Custom username and avatar are optional
+- Discord may cache avatar images
+- Embeds are not currently supported (only plain text content)
+- The authenticated user must have permissions to use the configured webhook
+- Configuration is stored in `agent_configs` table with `agent_type: 'discord_messenger'`

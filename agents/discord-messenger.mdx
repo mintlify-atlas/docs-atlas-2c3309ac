@@ -1,0 +1,278 @@
+---
+title: "Discord Messenger Agent"
+description: "Send messages to Discord channels via webhooks"
+---
+
+The Discord Messenger agent allows you to send automated messages to Discord channels using webhooks. Perfect for notifications, alerts, and keeping your team informed about workflow events.
+
+## Use Cases
+
+- Send notifications when workflows complete
+- Alert team members about important events
+- Post summaries of processed data to Discord
+- Create logs of automated actions
+- Monitor system events in Discord channels
+
+## Configuration
+
+### Discord Webhook Setup
+
+Before configuring the agent, you need to create a webhook in Discord:
+
+1. Open Discord and navigate to your server
+2. Go to Server Settings → Integrations → Webhooks
+3. Click "New Webhook"
+4. Choose a channel for the webhook
+5. Copy the webhook URL
+
+<Info>
+  Anyone with the webhook URL can send messages to your channel. Keep it secure and don't share it publicly.
+</Info>
+
+### Webhook Configuration
+
+<ParamField path="webhookUrl" type="string" required>
+  The Discord webhook URL. This is provided when you create a webhook in Discord.
+  
+  **Format:** `https://discord.com/api/webhooks/{webhook.id}/{webhook.token}`
+  
+  **Example:** `https://discord.com/api/webhooks/1234567890/abcdefghijklmnop`
+</ParamField>
+
+### Message Customization
+
+<ParamField path="username" type="string">
+  Custom display name for the webhook bot. If not provided, uses the webhook's default name.
+  
+  **Example:** `Workflow Bot`, `GitHub Monitor`, `Support Assistant`
+</ParamField>
+
+<ParamField path="avatarUrl" type="string">
+  URL to a custom avatar image for the webhook bot. If not provided, uses the webhook's default avatar.
+  
+  **Format:** Any publicly accessible image URL
+  
+  **Example:** `https://example.com/avatar.png`
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The message content to send to Discord. Supports Discord markdown formatting and dynamic field insertion from previous workflow steps.
+  
+  **Example:**
+  ```
+  **New Email Received**
+  
+  From: {{emailFrom}}
+  Subject: {{emailSubject}}
+  
+  Summary: {{text}}
+  ```
+</ParamField>
+
+## Input Requirements
+
+The Discord Messenger can access all output from previous agents in the workflow. Click on the input structure display to see available fields and insert them into your message.
+
+## Output Structure
+
+<ResponseField name="success" type="boolean" required>
+  Indicates whether the message was sent successfully.
+</ResponseField>
+
+<ResponseField name="messageId" type="string">
+  The ID of the sent Discord message. Can be used to reference the message later.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" required>
+  ISO 8601 timestamp of when the message was sent.
+</ResponseField>
+
+### Example Output
+
+```json
+{
+  "success": true,
+  "messageId": "1234567890123456789",
+  "timestamp": "2024-03-15T10:30:00.000Z"
+}
+```
+
+## Discord Markdown Support
+
+Format your messages using Discord's markdown syntax:
+
+- `**bold text**` - **bold text**
+- `*italic text*` - *italic text*
+- `__underline__` - underline
+- `~~strikethrough~~` - ~~strikethrough~~
+- `` `code` `` - `code`
+- ````code block```` - code block
+- `> quote` - quote
+
+## Usage Examples
+
+### Email Notification Bot
+
+**Workflow:** Notify Discord when important emails arrive
+
+1. **Gmail Reader**
+   - From Email: `alerts@service.com`
+   - Set as Trigger: true
+
+2. **Discord Messenger**
+   - Username: `Email Monitor`
+   - Message:
+   ```
+   🔔 **New Alert Email**
+   
+   **From:** {{emailFrom}}
+   **Subject:** {{emailSubject}}
+   **Date:** {{emailDate}}
+   
+   **Preview:**
+   {{emailBody}}
+   ```
+
+### GitHub Commit Digest
+
+**Workflow:** Post commit summaries to Discord
+
+1. **GitHub Reader**
+   - Repository: `owner/repo`
+   - Branch: `main`
+
+2. **Text Generator**
+   - Prompt: "Create a concise summary of these commits: {{commits}}"
+
+3. **Discord Messenger**
+   - Username: `GitHub Bot`
+   - Avatar URL: `https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png`
+   - Message:
+   ```
+   📦 **New Commits in {{repoName}}**
+   
+   **Branch:** {{branch}}
+   **Pusher:** {{pusher}}
+   **Commits:** {{commits.length}}
+   
+   **Summary:**
+   {{text}}
+   
+   [View on GitHub]({{commits[0].url}})
+   ```
+
+### Workflow Status Notification
+
+**Workflow:** Send completion notifications
+
+1. **Gmail Reader**
+   - From Email: `system@company.com`
+
+2. **Text Generator**
+   - Prompt: "Analyze this system email: {{emailBody}}"
+
+3. **Discord Messenger**
+   - Message:
+   ```
+   ✅ **Workflow Completed**
+   
+   **Source:** Email from {{emailFrom}}
+   **Subject:** {{emailSubject}}
+   **Processed:** {{timestamp}}
+   
+   **Analysis:**
+   {{text}}
+   ```
+
+### Multi-Channel Notifications
+
+**Workflow:** Send different messages to different channels
+
+1. **GitHub Reader**
+   - Repository: `owner/repo`
+
+2. **Discord Messenger** (Development Channel)
+   - Webhook URL: `https://discord.com/api/webhooks/dev/...`
+   - Message: `Dev update: {{commits.length}} new commits`
+
+3. **Discord Messenger** (General Channel)
+   - Webhook URL: `https://discord.com/api/webhooks/general/...`
+   - Message: `📢 {{repoName}} has been updated!`
+
+## Best Practices
+
+### Message Formatting
+
+- Use Discord markdown for better readability
+- Include relevant emojis for visual distinction (🔔 📦 ✅ ⚠️)
+- Keep messages concise - Discord has a 2000 character limit
+- Use code blocks for technical data or logs
+
+### Webhook Security
+
+- Never commit webhook URLs to public repositories
+- Regenerate webhooks if they're accidentally exposed
+- Use separate webhooks for different workflows or channels
+- Restrict server permissions for webhook creation
+
+### Performance
+
+- Avoid sending too many messages in rapid succession
+- Batch updates when possible
+- Use Discord's rate limits responsibly
+
+### Customization
+
+- Use custom usernames to identify different workflows
+- Set avatar URLs to visually distinguish bot sources
+- Create consistent formatting across your organization
+
+## Error Handling
+
+Common errors and solutions:
+
+- **Discord webhook URL is required**: Enter a valid webhook URL
+- **Message content is required**: Ensure the message field is not empty
+- **Invalid webhook URL**: Verify the webhook URL format is correct
+- **Webhook not found**: The webhook may have been deleted; create a new one
+- **Rate limit exceeded**: Wait before sending more messages
+- **Message too long**: Discord messages have a 2000 character limit
+
+## Testing
+
+### Test Agent
+Sends a test message to your Discord channel immediately using the current configuration.
+
+<Info>
+  Test Agent sends real messages to Discord. Your message will be visible to all channel members.
+</Info>
+
+### Test Workflow
+Runs the entire workflow from the beginning to see how real data flows into your Discord messages.
+
+## Limitations
+
+- Maximum message length: 2000 characters
+- Discord webhook rate limits apply
+- Embeds are not currently supported
+- File attachments are not supported
+- Cannot edit or delete sent messages
+
+## Advanced Tips
+
+### Using Mentions
+
+Mention users or roles in your messages:
+
+- User mention: `<@USER_ID>`
+- Role mention: `<@&ROLE_ID>`
+- Channel mention: `<#CHANNEL_ID>`
+- @everyone: `@everyone` (use sparingly)
+
+### Line Breaks
+
+Use `\n` in your message content to create line breaks:
+
+```
+First line\n\nThird line (with blank line above)
+```

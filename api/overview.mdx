@@ -1,0 +1,143 @@
+---
+title: 'API Overview'
+description: 'Introduction to Agility Edge Functions API - authentication, common patterns, and getting started'
+---
+
+## Introduction
+
+Agility provides a set of Edge Functions powered by Supabase that enable workflow automation through various integrations. These serverless functions handle operations like text generation, email management, Discord messaging, and GitHub integration.
+
+## Base URL
+
+All API endpoints are hosted on your Supabase instance:
+
+```
+https://<your-project-ref>.supabase.co/functions/v1/
+```
+
+## Authentication
+
+All Edge Functions require authentication using a Supabase JWT token passed in the `Authorization` header.
+
+### Header Format
+
+```http
+Authorization: Bearer <your-supabase-jwt-token>
+```
+
+### Getting Your Token
+
+You can obtain a JWT token by:
+1. Authenticating through Supabase Auth
+2. Using the Supabase client library's `getSession()` method
+3. Extracting the token from the authenticated user's session
+
+### Authentication Errors
+
+| Status Code | Error | Description |
+|-------------|-------|-------------|
+| 401 | `No authorization header` | Authorization header is missing |
+| 401 | `Not authenticated` | Invalid or expired JWT token |
+
+## Common Request Patterns
+
+### CORS Support
+
+All endpoints support CORS with the following headers:
+- `Access-Control-Allow-Origin: *`
+- `Access-Control-Allow-Methods: POST, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+
+### Request Format
+
+All requests should use:
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+- **Body**: JSON payload with required parameters
+
+### Response Format
+
+Successful responses return JSON with a 200 status code:
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data specific to the endpoint
+  }
+}
+```
+
+Error responses include:
+
+```json
+{
+  "error": "Error message describing what went wrong"
+}
+```
+
+## Common Parameters
+
+Many endpoints share these common parameters:
+
+<ParamField path="elementId" type="string" required>
+  The unique identifier for the workflow element. This links the API call to a specific agent configuration in your workflow.
+</ParamField>
+
+## Error Codes
+
+| Status Code | Meaning |
+|-------------|----------|
+| 200 | Success - Request completed successfully |
+| 204 | No Content - Request successful, no response body |
+| 400 | Bad Request - Missing or invalid parameters |
+| 401 | Unauthorized - Authentication required or failed |
+| 404 | Not Found - Resource or configuration not found |
+| 500 | Internal Server Error - Server-side error occurred |
+
+## Rate Limiting
+
+Rate limits depend on your Supabase plan. Check your Supabase dashboard for current limits.
+
+## Agent Configuration
+
+Most Edge Functions work with agent configurations stored in the `agent_configs` table. These configurations include:
+
+- API keys and credentials (encrypted)
+- Agent-specific settings
+- Connection parameters
+
+Configurations are automatically loaded based on the `elementId` parameter.
+
+## Placeholder System
+
+Many endpoints support dynamic placeholder substitution in text fields using the format:
+
+```
+{{input.fieldName}}
+```
+
+For example:
+- `{{input.text}}` - References text from a previous agent
+- `{{input.emailBody}}` - References email body from Gmail reader
+- `{{input.messages.0.body}}` - References first message body
+
+Placeholders are resolved at runtime using the workflow's output context.
+
+## Security Considerations
+
+1. **Credentials**: API keys and OAuth tokens are encrypted using XOR encryption with an `ENCRYPTION_KEY` environment variable
+2. **User Isolation**: All queries are filtered by `user_id` to ensure data isolation
+3. **Token Validation**: JWT tokens are validated on every request
+4. **HTTPS Only**: All API calls must use HTTPS
+
+## Next Steps
+
+Explore the individual endpoint documentation:
+
+- [Run Workflow](/api/run-workflow) - Execute workflow sequences
+- [Generate Text](/api/generate-text) - AI text generation
+- [Read Gmail](/api/read-gmail) - Fetch emails
+- [Send Gmail](/api/send-gmail) - Send emails
+- [Send Discord](/api/send-discord) - Send Discord messages
+- [Read GitHub](/api/read-github) - Fetch GitHub commits

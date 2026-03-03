@@ -1,0 +1,194 @@
+---
+title: 'Send Gmail'
+description: 'Send emails through Gmail using OAuth2 authentication'
+---
+
+## POST /functions/v1/send-gmail
+
+Sends an email through Gmail using OAuth2 credentials. Supports plain text emails with subject and body.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="to" type="string" required>
+  Recipient email address. Can be a single email or name with email (e.g., `"John Doe <john@example.com>"`).
+</ParamField>
+
+<ParamField body="subject" type="string" required>
+  Email subject line.
+</ParamField>
+
+<ParamField body="body" type="string" required>
+  Plain text content of the email body.
+</ParamField>
+
+<ParamField body="elementId" type="string">
+  The workflow element ID. Used to load Gmail OAuth credentials from the database if not provided directly.
+</ParamField>
+
+<ParamField body="clientId" type="string">
+  Google OAuth2 Client ID. If not provided, will be loaded from database based on elementId.
+</ParamField>
+
+<ParamField body="clientSecret" type="string">
+  Google OAuth2 Client Secret. If not provided, will be loaded from database based on elementId.
+</ParamField>
+
+<ParamField body="refreshToken" type="string">
+  Google OAuth2 Refresh Token. If not provided, will be loaded from database based on elementId.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the email was sent successfully
+</ResponseField>
+
+<ResponseField name="messageId" type="string">
+  Gmail message ID of the sent email
+</ResponseField>
+
+## Email Format
+
+Emails are sent in RFC 2822 format with the following structure:
+
+```
+To: {recipient}
+Subject: {subject}
+Content-Type: text/plain; charset=utf-8
+
+{body}
+```
+
+The message is:
+1. Encoded in UTF-8
+2. Converted to base64
+3. URL-safe encoded (replacing `+` with `-`, `/` with `_`, removing `=`)
+4. Sent to Gmail API
+
+## Gmail OAuth Flow
+
+1. **Load Credentials**: Retrieves encrypted credentials from `user_gmail_credentials` table
+2. **Decrypt**: Uses XOR decryption with `ENCRYPTION_KEY` environment variable
+3. **Get Access Token**: Exchanges refresh token for access token via Google OAuth
+4. **Send Message**: Posts to Gmail API with access token
+
+### Gmail API Endpoint Used
+
+```
+POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send
+```
+
+## Examples
+
+### Request with Element ID
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/send-gmail \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "gmail-sender-123",
+    "to": "recipient@example.com",
+    "subject": "Weekly Report",
+    "body": "Hello,\n\nHere is your weekly report.\n\nBest regards"
+  }'
+```
+
+### Request with Direct Credentials
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/send-gmail \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Test Email",
+    "body": "This is a test email.",
+    "clientId": "YOUR_CLIENT_ID",
+    "clientSecret": "YOUR_CLIENT_SECRET",
+    "refreshToken": "YOUR_REFRESH_TOKEN"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "messageId": "18c5a2b3f9d1e4a6"
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Failed to send email: Invalid credentials"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Recipient email is required` | Missing to parameter |
+| 400 | `Email subject is required` | Missing subject parameter |
+| 400 | `Email body is required` | Missing body parameter |
+| 400 | `Invalid Gmail credentials` | Credentials are incomplete or incorrect |
+| 404 | `No Gmail credentials found for this user` | User hasn't connected Gmail account |
+| 500 | `Failed to retrieve Gmail credentials` | Database error loading credentials |
+| 500 | `Failed to send email` | Gmail API error or network issue |
+
+## Workflow Integration
+
+When called from `run-workflow`, the function supports placeholder substitution in fields:
+
+```json
+{
+  "to": "{{input.emailFrom}}",
+  "subject": "Re: {{input.emailSubject}}",
+  "body": "Thank you for your message:\n\n{{input.emailBody}}"
+}
+```
+
+## OAuth Token Refresh
+
+The function automatically obtains a fresh access token:
+
+```
+POST https://oauth2.googleapis.com/token
+
+client_id={clientId}
+client_secret={clientSecret}
+refresh_token={refreshToken}
+grant_type=refresh_token
+```
+
+## Configuration Priority
+
+Credentials are loaded in this order:
+
+1. **Direct parameters**: `clientId`, `clientSecret`, `refreshToken` from request
+2. **Database lookup**: If elementId provided, loads from `user_gmail_credentials` table
+3. **Agent config check**: Validates `agent_configs` has entry (optional)
+
+## Notes
+
+- Only plain text emails are supported (no HTML)
+- The sender email is determined by the OAuth credentials (authenticated user's Gmail)
+- Character encoding is UTF-8 by default
+- Emails are sent from the authenticated user's Gmail account
+- No attachments are supported in the current implementation
+- Credentials are centrally managed in `user_gmail_credentials` table

@@ -1,0 +1,155 @@
+---
+title: Creating Workflows
+description: Learn how to create AI agent workflows using Agility's visual workflow builder
+---
+
+Agility's visual workflow builder lets you create complex AI automations without writing code. This guide walks you through creating your first workflow from scratch.
+
+## Getting Started with the Canvas
+
+The workflow canvas is your workspace for designing agent workflows. It features:
+
+- **Infinite canvas** - Pan around by clicking and dragging the background
+- **Grid system** - Visual guides to help align your agents
+- **Drag-and-drop interface** - Simply drag agents from the sidebar onto the canvas
+
+<Tip>
+You can pan the canvas using your mouse, trackpad, or touch input. The grid automatically adjusts as you move around.
+</Tip>
+
+## Creating a Workflow
+
+<Steps>
+  <Step title="Access the Workflow Builder">
+    Navigate to the workflow page from the home screen. You'll see the canvas on the right and the agent sidebar on the left.
+  </Step>
+
+  <Step title="Add Agents to Canvas">
+    Drag agents from the left sidebar onto the canvas. Each agent appears as a card with:
+    - **Agent name** in the header
+    - **Description** of what it does
+    - **Icon** representing the agent type
+    - **Connection handle** (circle on the right side) for linking agents
+    
+    Position agents by dragging them around the canvas. The cards will show a shadow effect when dragged.
+  </Step>
+
+  <Step title="Configure Each Agent">
+    Click on any agent card to open its configuration sidebar on the right. Here you can:
+    - Set API keys (for services like OpenAI, Gmail, Discord)
+    - Configure prompts and parameters
+    - Test the agent individually
+    
+    The configuration sidebar has a colored header matching the agent's theme.
+  </Step>
+
+  <Step title="Connect Agents Together">
+    Create data flow between agents:
+    1. Click and drag the connection handle (circle) on the right side of an agent
+    2. Drag to the target agent you want to connect to
+    3. Release to create the connection
+    
+    You'll see animated arrows showing the data flow direction. To cancel a connection, click anywhere on the canvas or press Escape.
+    
+    <Note>
+    The canvas shows helpful hints while connecting: "Drag to a target node or release to cancel"
+    </Note>
+  </Step>
+
+  <Step title="Save Your Workflow">
+    Click the "Save Workflow" button in the top-right corner. Your workflow is automatically saved to your account and can be loaded later.
+  </Step>
+</Steps>
+
+## Using AI to Generate Workflows
+
+Agility includes an AI-powered workflow generator that can create complete workflows from text descriptions.
+
+<Steps>
+  <Step title="Open AI Generator">
+    Click the star icon button in the top-left corner of the canvas. A prompt input will appear at the top center.
+  </Step>
+
+  <Step title="Describe Your Workflow">
+    Type a description of what you want to build. For example:
+    - "Read emails from GitHub and send summaries to Discord"
+    - "Generate blog post ideas and email them to me"
+    - "Monitor GitHub commits and create reports"
+  </Step>
+
+  <Step title="Generate and Refine">
+    Press Enter or click "Generate". The AI will create a complete workflow with:
+    - Appropriate agents positioned on the canvas
+    - Connections between agents
+    - Suggested configuration starting points
+    
+    You can then modify the generated workflow by adding, removing, or reconfiguring agents.
+  </Step>
+</Steps>
+
+<Warning>
+You must be logged in to use the AI workflow generator. Make sure you have an active session before attempting to generate workflows.
+</Warning>
+
+## Using Workflow Templates
+
+Templates provide pre-built workflows for common use cases. To use a template:
+
+1. Browse available templates in the templates section
+2. Drag the template card onto the canvas
+3. The template will be placed at your drop location with all agents and connections intact
+4. Configure each agent with your own API keys and parameters
+
+Templates show the number of agents and connections included, making it easy to understand complexity at a glance.
+
+## Working with the Canvas
+
+### Navigation
+
+- **Pan**: Click and drag the canvas background
+- **Select agent**: Click on any agent card
+- **Move agent**: Click and drag an agent card
+- **Delete agent**: Select an agent and press Delete, or use the delete button in configuration
+
+### Visual Feedback
+
+- **Connection mode**: The cursor changes to a crosshair when creating connections
+- **Drag state**: Agents show enhanced shadows and slight rotation when being dragged
+- **Connection targets**: Potential target agents highlight with a blue border when connecting
+- **Connection source**: The source agent shows a green border while connecting
+
+<Tip>
+If you make a mistake while connecting agents, simply release the mouse button without hovering over a target agent to cancel the connection.
+</Tip>
+
+## Best Practices
+
+### Layout
+
+- Position agents in a left-to-right flow matching data movement
+- Keep related agents close together
+- Leave space between agent groups for clarity
+- Use the grid to align agents vertically or horizontally
+
+### Organization
+
+- Start with input agents (Gmail Reader, GitHub Reader) on the left
+- Place processing agents (Text Generator) in the middle
+- Position output agents (Gmail Sender, Discord Messenger) on the right
+- Save frequently to avoid losing work
+
+### Testing
+
+- Configure and test each agent individually before connecting
+- Test the complete workflow after creating all connections
+- Check the configuration sidebar for error messages
+
+## Empty Canvas State
+
+When you first open the canvas, you'll see the message "Drag agents here to create your workflow". This indicates the canvas is ready for you to start building.
+
+## Next Steps
+
+- Learn about [connecting agents](/guides/connecting-agents) and managing data flow
+- Discover how to [test workflows](/guides/testing-workflows) effectively
+- Explore [common patterns](/guides/common-patterns) for building powerful automations

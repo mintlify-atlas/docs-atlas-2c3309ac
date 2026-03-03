@@ -1,0 +1,147 @@
+---
+title: "Text Generator Agent"
+description: "Generate text using AI models from OpenAI and Anthropic"
+---
+
+The Text Generator agent enables you to generate text using state-of-the-art language models from OpenAI (GPT) and Anthropic (Claude). This agent is perfect for content creation, text transformation, summarization, and any task requiring natural language generation.
+
+## Use Cases
+
+- Generate email responses based on incoming messages
+- Summarize long documents or commits
+- Create content from templates with dynamic data
+- Transform data into human-readable formats
+- Perform text analysis and classification
+
+## Configuration
+
+### API Authentication
+
+<ParamField path="apiKey" type="string" required>
+  Your OpenAI or Anthropic API key, depending on the selected model.
+  
+  - For OpenAI models (GPT-3.5, GPT-4): Get your key from [OpenAI Platform](https://platform.openai.com/api-keys)
+  - For Anthropic models (Claude): Get your key from [Anthropic Console](https://console.anthropic.com/)
+</ParamField>
+
+### Model Selection
+
+<ParamField path="model" type="string" required>
+  The AI model to use for text generation. Available options:
+  
+  **OpenAI Models:**
+  - `gpt-3.5-turbo` - Fast and cost-effective
+  - `gpt-4` - Most capable GPT-4 model
+  - `gpt-4-turbo` - Faster GPT-4 variant
+  
+  **Anthropic Models:**
+  - `claude-3-haiku-20240307` - Fastest, most compact model
+  - `claude-3-sonnet-20240229` - Balanced performance and speed
+  - `claude-3-opus-20240229` - Most powerful Claude model
+</ParamField>
+
+### Prompt Configuration
+
+<ParamField path="prompt" type="string" required>
+  The text prompt that instructs the AI model on what to generate. You can include dynamic fields from previous workflow steps by clicking on available input fields.
+  
+  **Example:**
+  ```
+  Summarize the following email:
+  
+  Subject: {{emailSubject}}
+  From: {{emailFrom}}
+  Body: {{emailBody}}
+  
+  Provide a concise 2-3 sentence summary.
+  ```
+</ParamField>
+
+## Input Requirements
+
+The Text Generator can access data from any previous agent in the workflow. Click on the input structure display to see available fields and insert them into your prompt.
+
+## Output Structure
+
+<ResponseField name="text" type="string" required>
+  The generated text content from the AI model.
+</ResponseField>
+
+### Example Output
+
+```json
+{
+  "text": "This is the generated text from the AI model based on your prompt."
+}
+```
+
+## Usage Example
+
+### Email Auto-Responder
+
+Configure a workflow that reads emails and generates personalized responses:
+
+1. **Gmail Reader Agent** - Reads incoming emails
+2. **Text Generator Agent** - Configured with:
+   ```
+   Model: gpt-4-turbo
+   Prompt: "Write a professional response to this email:
+   
+   From: {{emailFrom}}
+   Subject: {{emailSubject}}
+   Body: {{emailBody}}
+   
+   Be helpful, concise, and maintain a friendly tone."
+   ```
+3. **Gmail Sender Agent** - Sends the generated response
+
+### Commit Summarizer
+
+Generate summaries of GitHub commits:
+
+```
+Model: claude-3-sonnet-20240229
+Prompt: "Analyze these recent commits and provide a brief project update:
+
+{{commits}}
+
+Format the summary in 3-4 bullet points highlighting key changes."
+```
+
+## Best Practices
+
+### Prompt Engineering
+
+- Be specific and clear in your instructions
+- Provide examples of desired output format
+- Use structure (bullet points, numbered lists) in your prompts
+- Test prompts with the "Test Agent" button before deploying
+
+### Model Selection
+
+- Use GPT-3.5 Turbo for simple tasks and faster responses
+- Use GPT-4 or Claude Opus for complex reasoning and analysis
+- Use Claude Haiku for speed-critical applications
+
+### Cost Optimization
+
+- Keep prompts concise to minimize token usage
+- Use the most appropriate model for your task (don't use GPT-4 for simple tasks)
+- Test thoroughly to avoid unnecessary API calls
+
+## Error Handling
+
+Common errors and solutions:
+
+- **Invalid API Key**: Verify your API key is correct and has not expired
+- **Rate Limit Exceeded**: Wait a moment and try again, or upgrade your API plan
+- **Prompt Too Long**: Reduce the amount of context in your prompt
+- **Model Not Available**: Ensure your API key has access to the selected model
+
+## Testing
+
+### Test Agent
+Tests the text generation with your current prompt configuration. This runs the agent in isolation without executing the entire workflow.
+
+### Test Workflow
+Executes the complete workflow from the beginning, allowing you to see how real data flows through the text generator.

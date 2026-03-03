@@ -1,0 +1,137 @@
+---
+title: Introduction to Agility
+description: Transform your workflow with AI-powered automation - no coding required
+---
+
+# Welcome to Agility
+
+Agility is a visual workflow automation platform that lets you create, deploy, and manage AI agent workflows through an intuitive drag-and-drop interface. Connect different AI agents to automate complex tasks across Gmail, GitHub, Discord, and more.
+
+<Note>
+  Perfect for teams who want powerful automation without the complexity of traditional development workflows.
+</Note>
+
+## What You Can Build
+
+<CardGroup cols={2}>
+  <Card title="Email Automation" icon="envelope">
+    Read emails from Gmail, process them with AI, and automatically send responses or notifications
+  </Card>
+  <Card title="Repository Monitoring" icon="github">
+    Track GitHub repository changes and automatically notify your team via Discord or email
+  </Card>
+  <Card title="AI Content Generation" icon="sparkles">
+    Generate text, summaries, or reports using GPT-4 or Claude, triggered by any event
+  </Card>
+  <Card title="Custom Workflows" icon="diagram-project">
+    Chain together multiple agents to create sophisticated automation tailored to your needs
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Visual Workflow Builder
+
+Create workflows by dragging agents onto a canvas and connecting them together. No code required - just point, click, and connect.
+
+- Drag-and-drop interface with real-time preview
+- Visual connections show data flow between agents
+- Pan and zoom to work with complex workflows
+- Save and load workflows with one click
+
+### AI-Powered Generation
+
+Describe your workflow in plain English and let AI build it for you:
+
+```text
+Read emails from my Gmail, generate a summary using GPT-4, 
+and send the summary to Discord
+```
+
+Agility's AI will create the complete workflow with all agents properly configured and connected.
+
+### Pre-Built Agents
+
+Start with ready-to-use agents for common tasks:
+
+- **Text Generator** - Generate content using GPT-3.5, GPT-4, or Claude models
+- **Gmail Reader** - Read and filter emails from specific senders
+- **Gmail Sender** - Send automated emails through your Gmail account
+- **Discord Messenger** - Post messages to Discord channels via webhooks
+- **GitHub Reader** - Monitor repository changes and pull latest commits
+
+### Secure Credential Management
+
+All API keys and credentials are encrypted and stored securely in Supabase:
+
+- OAuth integration for Gmail (no password sharing)
+- Encrypted storage for API keys (OpenAI, Anthropic, GitHub)
+- Per-user credential isolation
+- Easy credential updates through the UI
+
+## How It Works
+
+<Steps>
+  <Step title="Design Your Workflow">
+    Use the visual canvas to drag agents and connect them in sequence. Each connection passes data from one agent to the next.
+  </Step>
+  
+  <Step title="Configure Agents">
+    Click any agent to configure its settings, add API keys, and customize its behavior. Use the test button to verify it works.
+  </Step>
+  
+  <Step title="Save and Execute">
+    Save your workflow to the cloud and run it anytime. Monitor execution in real-time and see results immediately.
+  </Step>
+</Steps>
+
+## Architecture Overview
+
+Agility is built on modern, scalable infrastructure:
+
+- **Frontend**: Next.js 15 with React 19 and TypeScript
+- **Styling**: Tailwind CSS for responsive, modern UI
+- **Backend**: Supabase Edge Functions for serverless execution
+- **Database**: PostgreSQL (via Supabase) for workflows and credentials
+- **Authentication**: Supabase Auth with email/password and OAuth
+
+<Tip>
+  All workflows run serverlessly through Supabase Edge Functions, so you don't need to manage any infrastructure.
+</Tip>
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first workflow in under 5 minutes
+  </Card>
+  <Card title="Setup Guide" icon="gear" href="/setup">
+    Complete environment setup and configuration
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+### Customer Support Automation
+
+Automatically read support emails, generate AI-powered responses, and send them back - all without manual intervention.
+
+### DevOps Notifications
+
+Monitor your GitHub repositories and instantly notify your team in Discord when critical changes are pushed.
+
+### Content Creation Pipeline
+
+Generate blog post drafts, social media content, or email newsletters using AI, then review and send them through your workflow.
+
+### Research Summarization
+
+Automate the process of collecting information from multiple sources, generating summaries with AI, and distributing them to your team.
+
+<Warning>
+  Agility is designed for automation workflows. Make sure you have proper API access and credentials for the services you want to integrate.
+</Warning>
+
+## Ready to Build?
+
+Start with our [Quick Start Guide](/quickstart) to create your first automated workflow, or dive into the [Setup Guide](/setup) for detailed configuration instructions.

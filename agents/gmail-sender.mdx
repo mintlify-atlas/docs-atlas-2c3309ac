@@ -1,0 +1,210 @@
+---
+title: "Gmail Sender Agent"
+description: "Send automated emails through your Gmail account"
+---
+
+The Gmail Sender agent enables you to send emails programmatically through your Gmail account. Perfect for automated responses, notifications, and email-based workflows.
+
+## Use Cases
+
+- Send automated email responses
+- Deliver notifications and alerts via email
+- Forward processed information to team members
+- Send confirmation emails after workflow completion
+- Create personalized email campaigns
+
+## Configuration
+
+### Gmail Authorization
+
+The Gmail Sender uses OAuth 2.0 for secure authentication. Click the "Connect Gmail" button to authorize Agility to send emails on your behalf.
+
+<Warning>
+  Emails will be sent from your connected Gmail account. Ensure you're using an appropriate account for your use case.
+</Warning>
+
+### Email Composition
+
+<ParamField path="to" type="string" required>
+  The recipient's email address. You can insert dynamic values from previous workflow steps.
+  
+  **Example:** `customer@example.com`, `{{emailFrom}}` (to reply to the sender)
+</ParamField>
+
+<ParamField path="subject" type="string" required>
+  The email subject line. Supports dynamic field insertion.
+  
+  **Example:** `Re: {{emailSubject}}`, `Order Confirmation #{{orderNumber}}`
+</ParamField>
+
+<ParamField path="body" type="string" required>
+  The email message body in plain text format. Click on input fields to insert dynamic content from previous agents.
+  
+  **Example:**
+  ```
+  Hello,
+  
+  Thank you for your message:
+  {{emailBody}}
+  
+  {{text}}
+  
+  Best regards,
+  Support Team
+  ```
+</ParamField>
+
+## Input Requirements
+
+The Gmail Sender can access all data from previous workflow steps. Common fields to use:
+
+- `{{emailFrom}}` - Original sender (from Gmail Reader)
+- `{{emailSubject}}` - Original subject (from Gmail Reader)
+- `{{text}}` - Generated content (from Text Generator)
+- Any other fields from previous agents
+
+## Output Structure
+
+The Gmail Sender does not produce structured output for subsequent agents. It performs the action of sending an email.
+
+<Info>
+  While this agent doesn't output data, its successful execution can trigger subsequent agents in your workflow.
+</Info>
+
+## Usage Examples
+
+### Automated Email Response
+
+**Workflow:** Read support emails and send AI-generated responses
+
+1. **Gmail Reader**
+   - From Email: `support@yourcompany.com`
+   - Only Unread: true
+
+2. **Text Generator**
+   - Prompt: "Generate a helpful support response to: {{emailBody}}"
+
+3. **Gmail Sender**
+   - To: `{{emailFrom}}`
+   - Subject: `Re: {{emailSubject}}`
+   - Body:
+   ```
+   Hello,
+   
+   Thank you for contacting support.
+   
+   {{text}}
+   
+   If you need further assistance, please reply to this email.
+   
+   Best regards,
+   Support Team
+   ```
+
+### GitHub Commit Notification
+
+**Workflow:** Send email summaries of new commits
+
+1. **GitHub Reader**
+   - Repository: `owner/repo`
+
+2. **Text Generator**
+   - Prompt: "Summarize these commits: {{commits}}"
+
+3. **Gmail Sender**
+   - To: `team@company.com`
+   - Subject: `New commits in {{repoName}}`
+   - Body:
+   ```
+   Repository: {{repoName}}
+   Branch: {{branch}}
+   
+   Summary:
+   {{text}}
+   
+   View commits: {{commits[0].url}}
+   ```
+
+### Multi-Step Notification
+
+**Workflow:** Process data and notify multiple recipients
+
+1. **Gmail Reader**
+   - From Email: `orders@shop.com`
+
+2. **Text Generator**
+   - Prompt: "Extract order details: {{emailBody}}"
+
+3. **Gmail Sender** (To Customer)
+   - To: `{{emailFrom}}`
+   - Subject: `Order Confirmation`
+   - Body:
+   ```
+   Thank you for your order!
+   
+   {{text}}
+   
+   You will receive a shipping notification soon.
+   ```
+
+4. **Discord Messenger** (Internal Notification)
+   - Message: `New order processed: {{text}}`
+
+## Best Practices
+
+### Email Composition
+
+- Always include a clear subject line
+- Use proper email formatting with greetings and signatures
+- Test emails with the "Test Agent" button before deploying
+- Include relevant context from previous workflow steps
+
+### Personalization
+
+- Use dynamic fields to personalize each email
+- Address recipients by name when available
+- Reference specific details from their original message
+
+### Deliverability
+
+- Avoid sending too many emails in rapid succession
+- Use clear, non-spammy subject lines
+- Include unsubscribe information for automated campaigns
+- Verify recipient email addresses are valid
+
+### Security
+
+- Review OAuth permissions in your Google Account regularly
+- Use appropriate Gmail accounts (business vs. personal)
+- Don't send sensitive information without encryption
+- Monitor sent emails to ensure proper workflow execution
+
+## Error Handling
+
+Common errors and solutions:
+
+- **Gmail authorization required**: Click "Connect Gmail" to grant access
+- **Invalid recipient address**: Verify the email address format is correct
+- **Recipient email required**: Ensure the "To" field is not empty
+- **Subject is required**: Provide a subject line
+- **Email body required**: Ensure the body field contains content
+- **Rate limit exceeded**: Wait before sending more emails or reduce frequency
+
+## Testing
+
+### Test Agent
+Sends a test email immediately using your current configuration. Verify the email is received and formatted correctly.
+
+<Warning>
+  Test Agent sends real emails. Use a test recipient address to avoid sending unintended emails.
+</Warning>
+
+### Test Workflow
+Executes the complete workflow, including any email reading, processing, and sending steps.
+
+## Limitations
+
+- Emails are sent as plain text (HTML formatting not currently supported)
+- Attachments are not supported
+- Gmail API daily sending limits apply (typically 100-500 emails per day)
+- Maximum email size follows Gmail limits (approximately 25MB)

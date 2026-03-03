@@ -1,0 +1,167 @@
+---
+title: 'Generate Text'
+description: 'Generate text using OpenAI or Anthropic AI models'
+---
+
+## POST /functions/v1/generate-text
+
+Generates text using AI models (OpenAI GPT or Anthropic Claude) based on a prompt. Supports placeholder substitution for dynamic prompts.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <your-supabase-jwt-token>`
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="prompt" type="string" required>
+  The prompt to send to the AI model. Supports placeholder syntax like `{{input.text}}` which will be resolved from `previousOutput`.
+</ParamField>
+
+<ParamField body="elementId" type="string">
+  The workflow element ID. Required if API key and model are not provided directly. Used to load configuration from the database.
+</ParamField>
+
+<ParamField body="apiKey" type="string">
+  API key for OpenAI or Anthropic. If not provided, will be loaded from agent configuration based on `elementId`.
+</ParamField>
+
+<ParamField body="model" type="string">
+  Model identifier (e.g., `gpt-3.5-turbo`, `gpt-4`, `claude-3-opus-20240229`). Defaults to `gpt-3.5-turbo` if not specified.
+</ParamField>
+
+<ParamField body="previousOutput" type="object">
+  Object containing outputs from previous workflow steps, used for placeholder resolution.
+</ParamField>
+
+<ParamField body="testMode" type="boolean">
+  If `true`, uses provided credentials instead of loading from database. Defaults to `false`.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether text generation was successful
+</ResponseField>
+
+<ResponseField name="text" type="string">
+  The generated text content from the AI model
+</ResponseField>
+
+## Model Selection
+
+The function automatically detects the provider based on the model name:
+
+- **OpenAI**: Models containing `gpt` (e.g., `gpt-3.5-turbo`, `gpt-4`, `gpt-4-turbo`)
+- **Anthropic**: Models containing `claude` (e.g., `claude-3-opus-20240229`, `claude-3-sonnet-20240229`)
+
+### OpenAI Configuration
+
+- Endpoint: `https://api.openai.com/v1/chat/completions`
+- Max tokens: 1000
+- Message role: `user`
+
+### Anthropic Configuration
+
+- Endpoint: `https://api.anthropic.com/v1/messages`
+- Max tokens: 1000
+- API version: `2023-06-01`
+
+## Placeholder Resolution
+
+Prompts can include placeholders that reference previous workflow outputs:
+
+```
+Summarize this email: {{input.emailBody}}
+```
+
+Placeholders are resolved using the `previousOutput` parameter, which typically contains:
+
+- `input.text` - Text from previous text generator
+- `input.emailBody` - Email body from Gmail reader
+- `input.messages` - Array of messages
+- Custom paths like `input.messages.0.subject`
+
+## Examples
+
+### Request with Direct Credentials
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/generate-text \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a short poem about coding",
+    "apiKey": "sk-...",
+    "model": "gpt-3.5-turbo",
+    "testMode": true
+  }'
+```
+
+### Request with Element Configuration
+
+```bash
+curl -X POST https://your-project.supabase.co/functions/v1/generate-text \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elementId": "text-gen-123",
+    "prompt": "Summarize this text: {{input.text}}",
+    "previousOutput": {
+      "input": {
+        "text": "Long article text here..."
+      }
+    }
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "text": "In the realm of code and screen,\nWhere logic reigns supreme and keen,\nWe craft with care each function's flow,\nAnd watch our programs grow and glow."
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Failed to generate text: Invalid API key"
+}
+```
+
+## Error Codes
+
+| Status Code | Error Message | Description |
+|-------------|---------------|-------------|
+| 400 | `Prompt is required` | Missing prompt parameter |
+| 400 | `API key is required` | No API key provided or found in config |
+| 404 | `No text generator configuration found` | Element ID has no associated configuration |
+| 500 | `Failed to retrieve agent configuration` | Database error loading configuration |
+| 500 | `Failed to generate text` | AI API returned an error |
+
+## Configuration Storage
+
+When using `elementId`, credentials are:
+
+1. Retrieved from `agent_configs` table
+2. Filtered by `user_id`, `element_id`, and `agent_type: 'text_generator'`
+3. Decrypted using XOR encryption with `ENCRYPTION_KEY` environment variable
+4. Used for API calls to OpenAI or Anthropic
+
+## Notes
+
+- API keys are encrypted in the database using XOR encryption
+- Maximum token limit is set to 1000 for all requests
+- The function automatically determines the provider from the model name
+- Placeholder resolution happens before sending to the AI API
+- Both `apiKey` and `api_key` field names are supported in configurations

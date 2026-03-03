@@ -1,0 +1,179 @@
+---
+title: "agent_configs"
+description: "Agent configuration table schema for storing agent-specific settings"
+---
+
+## Overview
+
+The `agent_configs` table stores configuration data for individual agents within workflows. Each agent element in a workflow can have its own configuration settings stored in this table.
+
+## Table Schema
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the configuration record (auto-generated UUID)
+</ResponseField>
+
+<ResponseField name="user_id" type="string" required>
+  Foreign key reference to the authenticated user
+</ResponseField>
+
+<ResponseField name="element_id" type="string" required>
+  Identifier of the workflow element this configuration belongs to
+</ResponseField>
+
+<ResponseField name="agent_type" type="string" required>
+  Type of agent (e.g., "processor", "transformer", "analyzer")
+</ResponseField>
+
+<ResponseField name="config" type="object" required>
+  Agent-specific configuration data stored as JSON. The structure varies by agent type.
+  
+  <Expandable title="example config structure">
+    ```json
+    {
+      "apiKey": "secret-key",
+      "settings": {
+        "timeout": 30000,
+        "retries": 3
+      },
+      "parameters": {
+        "temperature": 0.7,
+        "maxTokens": 1000
+      }
+    }
+    ```
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp of when the configuration was created
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp of the last configuration update
+</ResponseField>
+
+## TypeScript Interface
+
+```typescript
+export interface AgentConfig {
+  id: string;
+  user_id: string;
+  element_id: string;
+  agent_type: string;
+  config: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Agent output structure for configuration
+export interface AgentOutputStructure {
+  type: string;
+  fields: AgentOutputField[];
+  description?: string;
+}
+
+export interface AgentOutputField {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;
+  required?: boolean;
+}
+```
+
+## CRUD Operations
+
+### Save Configuration
+
+Saves or updates an agent's configuration. Uses upsert to either create a new configuration or update an existing one based on the `user_id` and `element_id` combination.
+
+**Endpoint:** `manage-agent-configs`
+
+**Request:**
+```json
+{
+  "action": "save-config",
+  "elementId": "element-123",
+  "agentType": "data-processor",
+  "config": {
+    "apiEndpoint": "https://api.example.com",
+    "timeout": 30000,
+    "retries": 3,
+    "settings": {
+      "enableLogging": true,
+      "logLevel": "info"
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Element ID and agent type are required"
+}
+```
+
+### Get Configuration
+
+Retrieves the saved configuration for a specific agent element.
+
+**Endpoint:** `manage-agent-configs`
+
+**Request:**
+```json
+{
+  "action": "get-config",
+  "elementId": "element-123",
+  "agentType": "data-processor"
+}
+```
+
+**Response:**
+```json
+{
+  "config": {
+    "apiEndpoint": "https://api.example.com",
+    "timeout": 30000,
+    "retries": 3,
+    "settings": {
+      "enableLogging": true,
+      "logLevel": "info"
+    }
+  }
+}
+```
+
+If no configuration exists, returns an empty config:
+```json
+{
+  "config": {}
+}
+```
+
+## Relationships
+
+- **user_id** → References the authenticated user's ID
+- **element_id** → References a workflow element ID from the `user_workflows.data.elements` array
+- Configuration is linked to specific workflow elements, allowing each agent instance to have unique settings
+
+## Constraints
+
+- **Unique constraint:** The combination of `user_id` and `element_id` must be unique (enforced by upsert with `onConflict: 'user_id,element_id'`)
+- The `element_id` should correspond to an element in the user's workflow
+- The `config` field must contain valid JSON
+- Both `element_id` and `agent_type` are required for all operations
+
+## Usage Notes
+
+- The `config` object structure is flexible and varies by agent type
+- Configurations are persisted separately from workflow data for better modularity
+- When an agent element is duplicated in a workflow, it should reference a different `element_id` to maintain separate configurations
+- The upsert operation ensures that saving a configuration multiple times updates the existing record rather than creating duplicates
